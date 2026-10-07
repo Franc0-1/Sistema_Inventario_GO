@@ -1,0 +1,12 @@
+# Datos reales: nunca se versionan
+data/*.xlsx
+data/*.tmp
+data/~$*
+data/backups/
+data/.*.tmp
+!data/.gitkeep
+
+# Binarios
+/bin/
+/server
+*.exe

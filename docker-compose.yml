@@ -1,0 +1,13 @@
+services:
+  inventario:
+    build: .
+    container_name: inventario
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # En Proxmox (LXC o VM con Docker) apuntar a un disco con snapshots/backup.
+      - ./data:/app/data
+    stop_grace_period: 15s # permite terminar la última escritura del Excel
+    # environment:
+    #   INVENTARIO_CORS_ORIGINS: "http://otro-host:5173" # solo si el frontend se sirve desde otro origen

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control de Activos</title>
+  <script>
+    // Aplica el tema antes de pintar para evitar un destello claro.
+    // El atributo data-theme siempre refleja el tema efectivo (claro u oscuro).
+    (function () {
+      var guardado = null;
+      try { guardado = localStorage.getItem("tema"); } catch (e) {}
+      var oscuro = guardado ? guardado === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.setAttribute("data-theme", oscuro ? "dark" : "light");
+    })();
+  </script>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <a class="saltar-contenido" href="#contenido">Ir al contenido</a>
+
+  <header class="cabecera">
+    <div class="contenedor cabecera__contenido">
+      <div class="cabecera__marca">
+        <span class="marca-icono" data-icono="caja" data-tam="24"></span>
+        <div>
+        <h1 class="cabecera__titulo">Control de Activos</h1>
+        <p class="cabecera__subtitulo">Inventario y stock</p>
+        </div>
+      </div>
+      <div class="cabecera__acciones">
+        <details class="herramientas-excel" id="herramientas-excel">
+          <summary title="Archivos Excel"><span data-icono="archivo" data-tam="18"></span>Excel<span data-icono="chevron" data-tam="14"></span></summary>
+          <div class="herramientas-excel__menu">
+        <button type="button" class="boton boton--secundario" id="boton-exportar">
+          <span data-icono="flechaAbajo" data-tam="18"></span><span class="boton__texto">Exportar Excel</span>
+        </button>
+        <button type="button" class="boton boton--secundario" id="boton-importar">
+          <span data-icono="flechaArriba" data-tam="18"></span>Importar Excel
+        </button>
+          </div>
+        </details>
+        <button type="button" class="boton-tema" id="boton-tema" aria-label="Cambiar a modo oscuro" title="Cambiar a modo oscuro">
+          <span class="tema-oscuro" data-icono="luna" data-tam="18"></span>
+          <span class="tema-claro" data-icono="sol" data-tam="18"></span>
+        </button>
+        <button type="button" class="boton boton--primario" id="boton-nuevo" aria-label="Nuevo elemento">
+          <span data-icono="plus" data-tam="18"></span>
+          <span>Nuevo<span class="texto-escritorio"> elemento</span></span>
+        </button>
+      </div>
+    </div>
+
+    <nav class="contenedor secciones" id="secciones" aria-label="Secciones">
+      <button type="button" class="seccion" data-seccion="resumen"><span data-icono="grafico" data-tam="16"></span>Resumen</button>
+      <button type="button" class="seccion" data-seccion="reportes"><span data-icono="archivo" data-tam="16"></span>Reportes</button>
+      <button type="button" class="seccion" data-seccion="equipos">
+        <span data-icono="caja" data-tam="16"></span>
+        Equipos y stock
+        <span class="seccion__cantidad" id="cantidad-equipos"></span>
+      </button>
+      <button type="button" class="seccion" data-seccion="aires">
+        <span data-icono="aire" data-tam="16"></span>
+        Aires acondicionados
+        <span class="seccion__cantidad" id="cantidad-aires"></span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- El contenido de cada sección lo genera app.js -->
+  <main class="contenedor principal" id="contenido" tabindex="-1"></main>
+
+  <!-- ===== Alta y edición ===== -->
+  <dialog class="dialogo" id="dialogo-item" aria-labelledby="dialogo-item-titulo">
+    <form class="dialogo__form" id="form-item" novalidate>
+      <header class="dialogo__cabecera">
+        <h2 class="dialogo__titulo" id="dialogo-item-titulo">Ingresar nuevo elemento</h2>
+        <button type="button" class="boton-icono" data-cerrar aria-label="Cerrar"><span data-icono="x" data-tam="18"></span></button>
+      </header>
+      <div class="dialogo__cuerpo">
+        <p class="alerta-form" id="form-item-error" role="alert" hidden></p>
+
+        <label class="casilla">
+          <input type="checkbox" name="tiene_inventario" id="f-tiene">
+          Tiene número de inventario (equipo individual)
+        </label>
+
+        <div class="grilla-campos">
+          <div class="campo">
+            <label for="f-numero">N° de inventario <span class="obligatorio" id="f-numero-obligatorio" aria-hidden="true">*</span></label>
+            <input id="f-numero" name="numero_inventario" autocomplete="off" maxlength="50">
+            <p class="campo__error" id="error-numero_inventario" hidden></p>
+          </div>
+          <div class="campo">
+            <label for="f-serie">N° de serie</label>
+            <input id="f-serie" name="numero_serie" autocomplete="off" maxlength="80">
+            <p class="campo__error" id="error-numero_serie" hidden></p>
+          </div>
+          <div class="campo">
+            <label for="f-tipo">Tipo de dispositivo <span class="obligatorio" aria-hidden="true">*</span></label>
+            <input id="f-tipo" name="tipo_dispositivo" list="lista-tipos" autocomplete="off" maxlength="60" required>
+            <datalist id="lista-tipos"></datalist>
+            <p class="campo__error" id="error-tipo_dispositivo" hidden></p>
+          </div>
+          <div class="campo">
+            <label for="f-ubicacion">Área <span class="obligatorio" aria-hidden="true">*</span></label>
+            <input id="f-ubicacion" name="ubicacion" list="lista-areas" autocomplete="off" maxlength="80" required>
+            <datalist id="lista-areas"></datalist>
+            <p class="campo__error" id="error-ubicacion" hidden></p>
+          </div>
+          <div class="campo">
+            <label for="f-marca">Marca <span class="obligatorio" aria-hidden="true">*</span></label>
+            <input id="f-marca" name="marca" autocomplete="off" maxlength="60" required>
+            <p class="campo__error" id="error-marca" hidden></p>
+          </div>
+          <div class="campo">
+            <label for="f-modelo">Modelo <span class="obligatorio" aria-hidden="true">*</span></label>
+            <input id="f-modelo" name="modelo" autocomplete="off" maxlength="80" required>
+            <p class="campo__error" id="error-modelo" hidden></p>
+          </div>
+          <div class="campo">
+            <label for="f-cantidad">Cantidad <span class="obligatorio" aria-hidden="true">*</span></label>
+            <input id="f-cantidad" name="cantidad" type="number" min="0" step="1" inputmode="numeric" required>
+            <p class="campo__ayuda" id="f-cantidad-ayuda" hidden>Los equipos con número de inventario son unitarios.</p>
+            <p class="campo__error" id="error-cantidad" hidden></p>
+          </div>
+          <div class="campo">
+            <label for="f-estado">Condición <span class="obligatorio" aria-hidden="true">*</span></label>
+            <div class="selector">
+              <select id="f-estado" name="estado" required>
+                <option value="OPERATIVO">Utilizable</option>
+                <option value="EN_REPARACION">En reparación</option>
+                <option value="FUERA_DE_SERVICIO">No utilizable</option>
+                <option value="BAJA">Dado de baja</option>
+              </select>
+              <span data-icono="chevron" data-tam="16"></span>
+            </div>
+            <p class="campo__error" id="error-estado" hidden></p>
+          </div>
+          <div class="campo campo--ancho">
+            <label for="f-observacion">Observación</label>
+            <textarea id="f-observacion" name="observacion" rows="3" maxlength="500"></textarea>
+          </div>
+        </div>
+        <p class="texto-suave" id="form-item-fechas" hidden></p>
+      </div>
+      <footer class="dialogo__pie">
+        <button type="button" class="boton boton--secundario" data-cerrar>Cancelar</button>
+        <button type="submit" class="boton boton--primario" id="form-item-guardar"><span class="boton__texto">Crear elemento</span></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- ===== Ajuste de stock ===== -->
+  <dialog class="dialogo dialogo--chico" id="dialogo-stock" aria-labelledby="dialogo-stock-titulo">
+    <form class="dialogo__form" id="form-stock" novalidate>
+      <header class="dialogo__cabecera">
+        <h2 class="dialogo__titulo" id="dialogo-stock-titulo">Ajustar stock</h2>
+        <button type="button" class="boton-icono" data-cerrar aria-label="Cerrar"><span data-icono="x" data-tam="18"></span></button>
+      </header>
+      <div class="dialogo__cuerpo">
+        <p class="alerta-form" id="form-stock-error" role="alert" hidden></p>
+        <div>
+          <p class="dialogo__destacado" id="stock-nombre"></p>
+          <p class="texto-suave" id="stock-actual"></p>
+        </div>
+        <div class="campo">
+          <label for="s-cantidad">Nueva cantidad</label>
+          <input id="s-cantidad" name="cantidad" type="number" min="0" step="1" inputmode="numeric" required>
+          <p class="campo__error" id="error-stock-cantidad" hidden></p>
+        </div>
+      </div>
+      <footer class="dialogo__pie">
+        <button type="button" class="boton boton--secundario" data-cerrar>Cancelar</button>
+        <button type="submit" class="boton boton--primario" id="form-stock-guardar"><span class="boton__texto">Guardar stock</span></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- ===== Confirmación de eliminación ===== -->
+  <dialog class="dialogo dialogo--chico" id="dialogo-eliminar" role="alertdialog"
+          aria-labelledby="dialogo-eliminar-titulo" aria-describedby="eliminar-pregunta">
+    <form class="dialogo__form" id="form-eliminar" novalidate>
+      <header class="dialogo__cabecera">
+        <h2 class="dialogo__titulo" id="dialogo-eliminar-titulo">Eliminar elemento</h2>
+        <button type="button" class="boton-icono" data-cerrar aria-label="Cerrar"><span data-icono="x" data-tam="18"></span></button>
+      </header>
+      <div class="dialogo__cuerpo">
+        <p class="alerta-form" id="form-eliminar-error" role="alert" hidden></p>
+        <p id="eliminar-pregunta">¿Está seguro de eliminar este elemento?</p>
+        <p class="dialogo__destacado" id="eliminar-nombre"></p>
+        <p class="texto-suave">Se elimina del inventario de forma definitiva. Si solo dejó de usarse, conviene
+          editarlo y cambiar la condición a «Dado de baja».</p>
+      </div>
+      <footer class="dialogo__pie">
+        <button type="button" class="boton boton--secundario" data-cerrar>Cancelar</button>
+        <button type="submit" class="boton boton--peligro" id="form-eliminar-confirmar"><span class="boton__texto">Eliminar</span></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- ===== Historial de movimientos (solo lectura) ===== -->
+  <dialog class="dialogo dialogo--ancho" id="dialogo-historial" aria-labelledby="dialogo-historial-titulo">
+    <div class="dialogo__form">
+      <header class="dialogo__cabecera">
+        <div>
+          <h2 class="dialogo__titulo" id="dialogo-historial-titulo">Historial de movimientos</h2>
+          <p class="texto-suave" id="historial-item"></p>
+        </div>
+        <button type="button" class="boton-icono" data-cerrar aria-label="Cerrar"><span data-icono="x" data-tam="18"></span></button>
+      </header>
+      <div class="dialogo__cuerpo" id="historial-contenido" aria-live="polite"></div>
+      <footer class="dialogo__pie">
+        <button type="button" class="boton boton--secundario" data-cerrar>Cerrar</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <!-- Avisos de éxito / error -->
+  <dialog class="dialogo dialogo--chico" id="dialogo-importar" aria-labelledby="importar-titulo" aria-describedby="importar-advertencia">
+    <form class="dialogo__form" id="form-importar" novalidate>
+      <header class="dialogo__cabecera">
+        <h2 class="dialogo__titulo" id="importar-titulo">Importar Excel</h2>
+        <button type="button" class="boton-icono" data-cerrar aria-label="Cerrar"><span data-icono="x" data-tam="18"></span></button>
+      </header>
+      <div class="dialogo__cuerpo">
+        <p id="importar-advertencia">Se reemplazará todo el inventario. Los movimientos existentes se conservarán.</p>
+        <p class="alerta-form" id="form-importar-error" role="alert" hidden></p>
+        <div class="campo">
+          <label for="importar-archivo">Archivo Excel (.xlsx)</label>
+          <input type="file" id="importar-archivo" accept=".xlsx" aria-describedby="importar-nombre">
+          <p class="texto-suave" id="importar-nombre"></p>
+        </div>
+        <label class="casilla"><input type="checkbox" id="importar-confirmacion">Confirmo reemplazar todo el inventario.</label>
+        <p id="importar-resultado" role="status" aria-live="polite" hidden></p>
+      </div>
+      <footer class="dialogo__pie">
+        <button type="button" class="boton boton--secundario" data-cerrar>Cancelar</button>
+        <button type="submit" class="boton boton--peligro" id="importar-enviar"><span class="boton__texto">Reemplazar inventario</span></button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div class="avisos" id="avisos"></div>
+
+  <script src="/static/js/iconos.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/app.js"></script>
+  <script src="/static/js/analytics.js"></script>
+</body>
+</html>

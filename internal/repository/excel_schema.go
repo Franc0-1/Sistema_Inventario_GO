@@ -21,7 +21,7 @@ const (
 )
 
 // Columnas de la hoja Inventario (índice 0 = columna A). A–M son las de la
-// especificación; N–P, la extensión de préstamos. Toda columna nueva va al final.
+// especificacion; N-P, prestamos; Q, el gabinete padre. Las nuevas van al final.
 const (
 	colID = iota
 	colInventoryNumber
@@ -39,6 +39,7 @@ const (
 	colAvailability
 	colAssignedTo
 	colLoanedAt
+	colEquipmentID
 	inventoryColumns
 )
 
@@ -81,7 +82,7 @@ var (
 		header: []string{
 			"ID", "InventoryNumber", "HasInventory", "DeviceType", "Brand", "Model",
 			"SerialNumber", "Quantity", "Location", "Status", "Notes", "CreatedAt", "UpdatedAt",
-			"Availability", "AssignedTo", "LoanedAt",
+			"Availability", "AssignedTo", "LoanedAt", "EquipmentID",
 		},
 	}
 	// Las versiones anteriores de esta hoja tenían otras columnas en otro
@@ -260,6 +261,7 @@ func rowToItem(cells []string, row int) (models.Item, error) {
 		Availability:    models.Availability(r.readText(colAvailability)),
 		AssignedTo:      r.readText(colAssignedTo),
 		LoanedAt:        r.readOptionalTime(colLoanedAt),
+		EquipmentID:     r.readInt(colEquipmentID),
 	}
 	if r.err != nil {
 		return models.Item{}, r.err
@@ -296,6 +298,7 @@ func itemToRow(item models.Item) []any {
 	row[colAvailability] = string(item.Availability)
 	row[colAssignedTo] = item.AssignedTo
 	row[colLoanedAt] = ""
+	row[colEquipmentID] = item.EquipmentID
 	if item.LoanedAt != nil {
 		row[colLoanedAt] = utils.FormatCellTime(*item.LoanedAt)
 	}

@@ -550,3 +550,39 @@ go test ./internal/repository -run TestGenerateFixture -update
 
 ### Fuera de alcance hasta ahora
 Escrituras, historial y categorías vía API, autenticación, QR, SQLite y exportaciones.
+
+## Equipos y componentes
+
+- Una PC es un registro individual de tipo `Gabinete`, `CPU` o `PC`, con numero
+  de inventario y cantidad 1. Su ID es la referencia del conjunto; no se duplica
+  en otra hoja ni se suma nuevamente en los indicadores.
+- `Item.EquipmentID` / JSON `equipo_id` referencia al gabinete. Cero significa
+  sin asociacion. Cada componente conserva su ID, numero de inventario, serie,
+  condicion y movimientos. Vincular/desvincular no crea movimientos de stock.
+- Solo se vinculan unidades individuales (cantidad 1). No se admiten ciclos,
+  gabinetes anidados ni referencias inexistentes. Un gabinete con componentes
+  no puede eliminarse ni convertirse en otro tipo o stock; primero se desvincula.
+- Numeros de inventario repetidos se admiten exclusivamente dentro de la misma
+  PC validada, incluido el gabinete. Los seriales siguen siendo unicos. Si al
+  desvincular un componente su numero queda duplicado fuera del conjunto, se
+  rechaza la operacion; no se cambia su numero automaticamente.
+- `GET /api/equipment?includeRetired=true|false` devuelve
+  `{data: [{gabinete: Item, componentes: Item[]}]}` ordenado por ID. Excluye
+  gabinetes dados de baja por defecto; el detalle conserva todos sus componentes.
+- `PUT /api/inventory/{id}/equipment`, cuerpo `{equipo_id: ID}` (0 para
+  desvincular), devuelve `{data: Item}`. Usa validacion, mutex del servicio,
+  version del registro, backup y escritura atomica existentes. `POST /api/inventory`
+  acepta `equipo_id` para crear un componente directamente asociado. La edicion
+  normal conserva la relacion y no admite cambiarla por el endpoint general.
+- Excel interno: columna opcional Q `EquipmentID`. Los libros de 16 columnas
+  se leen sin modificarlos al abrir; el encabezado se extiende al guardar una fila
+  con el nuevo formato. La exportacion agrega M `ID del equipo` (ID interno,
+  no numero patrimonial). La importacion valida el conjunto completo antes de
+  persistir. Los archivos exportados anteriores, de 12 columnas, mantienen las
+  asociaciones existentes por ID. El formato tecnico anterior sigue admitido.
+- Frontend: `Inventario general` conserva filtros/paginacion; `Equipos` muestra
+  PCs y componentes, busqueda, bajas, edicion/historial y vinculacion explicita.
+  Los cambios e importaciones invalidan la vista; respuestas anteriores se descartan.
+- No se infieren asociaciones por ubicacion ni se importa automaticamente el
+  relevamiento externo. Sus encabezados, datos faltantes y seriales duplicados
+  requieren una adaptacion separada y confirmacion de los conjuntos.

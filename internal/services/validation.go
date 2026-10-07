@@ -138,8 +138,8 @@ func movementIsCoherent(mov models.Movement) bool {
 	return false
 }
 
-// checkUniqueness verifica que InventoryNumber y SerialNumber (si no están
-// vacíos) no pertenezcan a otro ítem. Compara sin distinguir mayúsculas e
+// checkUniqueness permite un InventoryNumber compartido solo dentro de la
+// misma PC; SerialNumber sigue siendo unico. Compara sin distinguir mayusculas e
 // ignora el propio ítem (item.ID), para que un Update pueda conservarlos.
 // Incluye los ítems dados de baja: un número no se reasigna nunca.
 func checkUniqueness(existing []models.Item, item models.Item) error {
@@ -147,7 +147,7 @@ func checkUniqueness(existing []models.Item, item models.Item) error {
 		if other.ID == item.ID {
 			continue
 		}
-		if sameIdentifier(item.InventoryNumber, other.InventoryNumber) {
+		if sameIdentifier(item.InventoryNumber, other.InventoryNumber) && !models.ShareEquipment(item, other) {
 			return fmt.Errorf("%w: %q (ítem %d)", ErrInventoryNumberExists, item.InventoryNumber, other.ID)
 		}
 		if sameIdentifier(item.SerialNumber, other.SerialNumber) {

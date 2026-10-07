@@ -11,7 +11,7 @@ const API_MOVIMIENTOS = `${API_BASE}/movements`;
 // devuelve la API). ID, fechas y préstamo los maneja el servidor.
 const CAMPOS_EDITABLES = [
   "numero_inventario", "tiene_inventario", "tipo_dispositivo", "marca", "modelo",
-  "numero_serie", "cantidad", "ubicacion", "estado", "observacion",
+  "numero_serie", "cantidad", "ubicacion", "estado", "observacion", "equipo_id",
 ];
 
 // Error de la API con el código estable del backend (ITEM_NOT_FOUND, …).
@@ -77,6 +77,8 @@ function conParametros(ruta, parametros = {}) {
 }
 
 const api = {
+  getEquipments: () => solicitud("GET", "", undefined, `${API_BASE}/equipment?includeRetired=true`),
+  setEquipment: (id, equipo_id) => solicitud("PUT", `${porId(id)}/equipment`, { equipo_id }),
   getSummary: () => solicitud("GET", "/summary"),
   getReports: (parametros) => solicitud("GET", conParametros("/reports", parametros)),
   importInventory: (archivo) => {

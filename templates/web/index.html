@@ -10,16 +10,17 @@
     (function () {
       var guardado = null;
       try { guardado = localStorage.getItem("tema"); } catch (e) {}
-      var oscuro = guardado ? guardado === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var oscuro = guardado ? guardado === "dark" : true;
       document.documentElement.setAttribute("data-theme", oscuro ? "dark" : "light");
     })();
   </script>
   <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/workspace.css">
 </head>
 <body>
   <a class="saltar-contenido" href="#contenido">Ir al contenido</a>
 
-  <header class="cabecera">
+  <aside class="cabecera barra-lateral" aria-label="Navegación principal">
     <div class="contenedor cabecera__contenido">
       <div class="cabecera__marca">
         <span class="marca-icono" data-icono="caja" data-tam="24"></span>
@@ -28,47 +29,65 @@
         <p class="cabecera__subtitulo">Inventario y stock</p>
         </div>
       </div>
-      <div class="cabecera__acciones">
-        <details class="herramientas-excel" id="herramientas-excel">
-          <summary title="Archivos Excel"><span data-icono="archivo" data-tam="18"></span>Excel<span data-icono="chevron" data-tam="14"></span></summary>
-          <div class="herramientas-excel__menu">
-        <button type="button" class="boton boton--secundario" id="boton-exportar">
-          <span data-icono="flechaAbajo" data-tam="18"></span><span class="boton__texto">Exportar Excel</span>
-        </button>
-        <button type="button" class="boton boton--secundario" id="boton-importar">
-          <span data-icono="flechaArriba" data-tam="18"></span>Importar Excel
-        </button>
-          </div>
-        </details>
-        <button type="button" class="boton-tema" id="boton-tema" aria-label="Cambiar a modo oscuro" title="Cambiar a modo oscuro">
-          <span class="tema-oscuro" data-icono="luna" data-tam="18"></span>
-          <span class="tema-claro" data-icono="sol" data-tam="18"></span>
-        </button>
-        <button type="button" class="boton boton--primario" id="boton-nuevo" aria-label="Nuevo elemento">
-          <span data-icono="plus" data-tam="18"></span>
-          <span>Nuevo<span class="texto-escritorio"> elemento</span></span>
-        </button>
-      </div>
     </div>
 
     <nav class="contenedor secciones" id="secciones" aria-label="Secciones">
       <button type="button" class="seccion" data-seccion="resumen"><span data-icono="grafico" data-tam="16"></span>Resumen</button>
-      <button type="button" class="seccion" data-seccion="reportes"><span data-icono="archivo" data-tam="16"></span>Reportes</button>
       <button type="button" class="seccion" data-seccion="equipos">
         <span data-icono="caja" data-tam="16"></span>
-        Equipos y stock
+        Inventario general
         <span class="seccion__cantidad" id="cantidad-equipos"></span>
       </button>
+      <button type="button" class="seccion" data-seccion="pcs"><span data-icono="monitor" data-tam="16"></span>Equipos</button>
       <button type="button" class="seccion" data-seccion="aires">
         <span data-icono="aire" data-tam="16"></span>
         Aires acondicionados
         <span class="seccion__cantidad" id="cantidad-aires"></span>
       </button>
+      <button type="button" class="seccion" data-seccion="reportes"><span data-icono="archivo" data-tam="16"></span>Reportes</button>
     </nav>
+    <details class="filtros-laterales" id="filtros-laterales" open hidden>
+      <summary><span data-icono="filtros" data-tam="16"></span>Filtrar inventario<span data-icono="chevron" data-tam="14"></span></summary>
+      <div id="filtros-laterales-contenido"></div>
+    </details>
+  </aside>
+
+  <header class="barra-superior">
+    <p class="ruta-vista"><span>Inventario</span><span aria-hidden="true">/</span><span id="ruta-seccion">Inventario general</span></p>
+    <div class="cabecera__acciones">
+      <details class="herramientas-excel" id="herramientas-excel">
+        <summary title="Archivos Excel"><span data-icono="archivo" data-tam="18"></span>Excel<span data-icono="chevron" data-tam="14"></span></summary>
+        <div class="herramientas-excel__menu">
+          <button type="button" class="boton boton--secundario" id="boton-exportar"><span data-icono="flechaAbajo" data-tam="18"></span><span class="boton__texto">Exportar Excel</span></button>
+          <button type="button" class="boton boton--secundario" id="boton-importar"><span data-icono="flechaArriba" data-tam="18"></span>Importar Excel</button>
+        </div>
+      </details>
+      <button type="button" class="boton-tema" id="boton-tema" aria-label="Cambiar a modo claro" title="Cambiar a modo claro">
+        <span class="tema-oscuro" data-icono="luna" data-tam="20"></span>
+        <span class="tema-claro" data-icono="sol" data-tam="20"></span>
+        <span class="solo-lector" id="tema-etiqueta">Modo oscuro</span>
+      </button>
+      <button type="button" class="boton boton--primario" id="boton-nuevo" aria-label="Nuevo elemento"><span data-icono="plus" data-tam="18"></span><span>Nuevo<span class="texto-escritorio"> elemento</span></span></button>
+    </div>
   </header>
 
   <!-- El contenido de cada sección lo genera app.js -->
   <main class="contenedor principal" id="contenido" tabindex="-1"></main>
+  <dialog class="dialogo dialogo--chico" id="dialogo-vincular" aria-labelledby="vincular-titulo">
+    <form class="dialogo__form" id="form-vincular">
+      <header class="dialogo__cabecera"><h2 class="dialogo__titulo" id="vincular-titulo">Vincular componente</h2><button type="button" class="boton-icono" data-cerrar aria-label="Cerrar"><span data-icono="x" data-tam="18"></span></button></header>
+      <div class="dialogo__cuerpo">
+        <p id="vincular-descripcion"></p>
+        <div class="campo" id="vincular-campo"><label for="vincular-componente">Componente</label><select id="vincular-componente" required></select></div>
+        <p class="alerta alerta--error" id="vincular-error" role="alert" hidden></p>
+      </div>
+      <footer class="dialogo__pie"><button type="button" class="boton boton--secundario" data-cerrar>Cancelar</button><button type="submit" class="boton boton--primario" id="vincular-guardar">Vincular</button></footer>
+    </form>
+  </dialog>
+  <dialog class="ficha-equipo" id="ficha-equipo" aria-labelledby="ficha-titulo">
+    <header class="ficha-equipo__cabecera"><span>Equipo seleccionado</span><button type="button" class="boton-icono" id="ficha-cerrar" aria-label="Cerrar ficha"><span data-icono="x" data-tam="18"></span></button></header>
+    <div id="ficha-contenido" aria-live="polite"></div>
+  </dialog>
 
   <!-- ===== Alta y edición ===== -->
   <dialog class="dialogo" id="dialogo-item" aria-labelledby="dialogo-item-titulo">
@@ -80,71 +99,111 @@
       <div class="dialogo__cuerpo">
         <p class="alerta-form" id="form-item-error" role="alert" hidden></p>
 
-        <label class="casilla">
-          <input type="checkbox" name="tiene_inventario" id="f-tiene">
-          Tiene número de inventario (equipo individual)
-        </label>
+        <fieldset class="grupo-form">
+          <legend class="grupo-form__titulo">¿Qué va a registrar?</legend>
+          <div class="opciones-registro">
+            <label class="opcion-registro">
+              <input type="radio" name="modo_registro" value="individual" id="f-modo-individual">
+              <span class="opcion-registro__icono" data-icono="qr" data-tam="18"></span>
+              <span>
+                <span class="opcion-registro__titulo">Equipo individual</span>
+                <span class="opcion-registro__texto">Tiene N° de inventario. Se registra de a uno.</span>
+              </span>
+            </label>
+            <label class="opcion-registro">
+              <input type="radio" name="modo_registro" value="stock" id="f-modo-stock">
+              <span class="opcion-registro__icono" data-icono="caja" data-tam="18"></span>
+              <span>
+                <span class="opcion-registro__titulo">Material o consumible</span>
+                <span class="opcion-registro__texto">Sin N° de inventario. Se controla por cantidad.</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
 
-        <div class="grilla-campos">
-          <div class="campo">
-            <label for="f-numero">N° de inventario <span class="obligatorio" id="f-numero-obligatorio" aria-hidden="true">*</span></label>
-            <input id="f-numero" name="numero_inventario" autocomplete="off" maxlength="50">
-            <p class="campo__error" id="error-numero_inventario" hidden></p>
-          </div>
-          <div class="campo">
-            <label for="f-serie">N° de serie</label>
-            <input id="f-serie" name="numero_serie" autocomplete="off" maxlength="80">
-            <p class="campo__error" id="error-numero_serie" hidden></p>
-          </div>
-          <div class="campo">
-            <label for="f-tipo">Tipo de dispositivo <span class="obligatorio" aria-hidden="true">*</span></label>
-            <input id="f-tipo" name="tipo_dispositivo" list="lista-tipos" autocomplete="off" maxlength="60" required>
-            <datalist id="lista-tipos"></datalist>
-            <p class="campo__error" id="error-tipo_dispositivo" hidden></p>
-          </div>
-          <div class="campo">
-            <label for="f-ubicacion">Área <span class="obligatorio" aria-hidden="true">*</span></label>
-            <input id="f-ubicacion" name="ubicacion" list="lista-areas" autocomplete="off" maxlength="80" required>
-            <datalist id="lista-areas"></datalist>
-            <p class="campo__error" id="error-ubicacion" hidden></p>
-          </div>
-          <div class="campo">
-            <label for="f-marca">Marca <span class="obligatorio" aria-hidden="true">*</span></label>
-            <input id="f-marca" name="marca" autocomplete="off" maxlength="60" required>
-            <p class="campo__error" id="error-marca" hidden></p>
-          </div>
-          <div class="campo">
-            <label for="f-modelo">Modelo <span class="obligatorio" aria-hidden="true">*</span></label>
-            <input id="f-modelo" name="modelo" autocomplete="off" maxlength="80" required>
-            <p class="campo__error" id="error-modelo" hidden></p>
-          </div>
-          <div class="campo">
-            <label for="f-cantidad">Cantidad <span class="obligatorio" aria-hidden="true">*</span></label>
-            <input id="f-cantidad" name="cantidad" type="number" min="0" step="1" inputmode="numeric" required>
-            <p class="campo__ayuda" id="f-cantidad-ayuda" hidden>Los equipos con número de inventario son unitarios.</p>
-            <p class="campo__error" id="error-cantidad" hidden></p>
-          </div>
-          <div class="campo">
-            <label for="f-estado">Condición <span class="obligatorio" aria-hidden="true">*</span></label>
-            <div class="selector">
-              <select id="f-estado" name="estado" required>
-                <option value="OPERATIVO">Utilizable</option>
-                <option value="EN_REPARACION">En reparación</option>
-                <option value="FUERA_DE_SERVICIO">No utilizable</option>
-                <option value="BAJA">Dado de baja</option>
-              </select>
-              <span data-icono="chevron" data-tam="16"></span>
+        <fieldset class="grupo-form">
+          <legend class="grupo-form__titulo">Descripción</legend>
+          <div class="grilla-campos">
+            <div class="campo campo--ancho">
+              <label for="f-tipo">Tipo de dispositivo <span class="obligatorio" aria-hidden="true">*</span></label>
+              <input id="f-tipo" name="tipo_dispositivo" list="lista-tipos" autocomplete="off" maxlength="60" required
+                     placeholder="Ej.: Notebook, Monitor, Mouse">
+              <datalist id="lista-tipos"></datalist>
+              <p class="campo__error" id="error-tipo_dispositivo" hidden></p>
             </div>
-            <p class="campo__error" id="error-estado" hidden></p>
+            <div class="campo">
+              <label for="f-marca">Marca <span class="obligatorio" aria-hidden="true">*</span></label>
+              <input id="f-marca" name="marca" autocomplete="off" maxlength="60" required placeholder="Ej.: Lenovo">
+              <p class="campo__error" id="error-marca" hidden></p>
+            </div>
+            <div class="campo">
+              <label for="f-modelo">Modelo <span class="obligatorio" aria-hidden="true">*</span></label>
+              <input id="f-modelo" name="modelo" autocomplete="off" maxlength="80" required placeholder="Ej.: ThinkPad E14">
+              <p class="campo__error" id="error-modelo" hidden></p>
+            </div>
           </div>
-          <div class="campo campo--ancho">
-            <label for="f-observacion">Observación</label>
-            <textarea id="f-observacion" name="observacion" rows="3" maxlength="500"></textarea>
+        </fieldset>
+
+        <fieldset class="grupo-form">
+          <legend class="grupo-form__titulo">Identificación</legend>
+          <div class="grilla-campos">
+            <div class="campo" id="campo-numero">
+              <label for="f-numero">N° de inventario <span class="obligatorio" id="f-numero-obligatorio" aria-hidden="true">*</span></label>
+              <input id="f-numero" name="numero_inventario" autocomplete="off" maxlength="50">
+              <p class="campo__error" id="error-numero_inventario" hidden></p>
+            </div>
+            <div class="campo">
+              <label for="f-serie">N° de serie</label>
+              <input id="f-serie" name="numero_serie" autocomplete="off" maxlength="80" placeholder="Opcional">
+              <p class="campo__error" id="error-numero_serie" hidden></p>
+            </div>
           </div>
-        </div>
+        </fieldset>
+
+        <fieldset class="grupo-form">
+          <legend class="grupo-form__titulo">Ubicación y estado</legend>
+          <div class="grilla-campos">
+            <div class="campo campo--ancho" id="campo-equipo">
+              <label for="f-equipo">Equipo al que pertenece</label>
+              <select id="f-equipo" name="equipo_id"></select>
+            </div>
+            <div class="campo">
+              <label for="f-ubicacion">Área <span class="obligatorio" aria-hidden="true">*</span></label>
+              <input id="f-ubicacion" name="ubicacion" list="lista-areas" autocomplete="off" maxlength="80" required
+                     placeholder="Ej.: Administración">
+              <datalist id="lista-areas"></datalist>
+              <p class="campo__error" id="error-ubicacion" hidden></p>
+            </div>
+            <div class="campo">
+              <label for="f-estado">Condición <span class="obligatorio" aria-hidden="true">*</span></label>
+              <div class="selector">
+                <select id="f-estado" name="estado" required>
+                  <option value="OPERATIVO">Utilizable</option>
+                  <option value="EN_REPARACION">En reparación</option>
+                  <option value="FUERA_DE_SERVICIO">No utilizable</option>
+                  <option value="BAJA">Dado de baja</option>
+                </select>
+                <span data-icono="chevron" data-tam="16"></span>
+              </div>
+              <p class="campo__error" id="error-estado" hidden></p>
+            </div>
+            <div class="campo">
+              <label for="f-cantidad">Cantidad <span class="obligatorio" aria-hidden="true">*</span></label>
+              <input id="f-cantidad" name="cantidad" type="number" min="0" step="1" inputmode="numeric" required>
+              <p class="campo__ayuda" id="f-cantidad-ayuda" hidden>Un equipo individual siempre es 1 unidad.</p>
+              <p class="campo__error" id="error-cantidad" hidden></p>
+            </div>
+            <div class="campo campo--ancho">
+              <label for="f-observacion">Observación</label>
+              <textarea id="f-observacion" name="observacion" rows="3" maxlength="500"
+                        placeholder="Opcional. Por ejemplo: a quién está asignado o detalles del estado."></textarea>
+            </div>
+          </div>
+        </fieldset>
         <p class="texto-suave" id="form-item-fechas" hidden></p>
       </div>
       <footer class="dialogo__pie">
+        <p class="dialogo__nota"><span class="obligatorio" aria-hidden="true">*</span> Campo obligatorio</p>
         <button type="button" class="boton boton--secundario" data-cerrar>Cancelar</button>
         <button type="submit" class="boton boton--primario" id="form-item-guardar"><span class="boton__texto">Crear elemento</span></button>
       </footer>
@@ -167,6 +226,7 @@
         <div class="campo">
           <label for="s-cantidad">Nueva cantidad</label>
           <input id="s-cantidad" name="cantidad" type="number" min="0" step="1" inputmode="numeric" required>
+          <p class="campo__ayuda">Ingrese la cantidad real que hay ahora. La diferencia queda registrada en el historial.</p>
           <p class="campo__error" id="error-stock-cantidad" hidden></p>
         </div>
       </div>
@@ -225,6 +285,8 @@
       </header>
       <div class="dialogo__cuerpo">
         <p id="importar-advertencia">Se reemplazará todo el inventario. Los movimientos existentes se conservarán.</p>
+        <p class="texto-suave">Use el archivo de «Exportar Excel»: puede editarlo, agregar filas con el ID vacío
+          (equipos nuevos) o borrar filas (se eliminan del inventario). No cambie el ID ni los títulos de las columnas.</p>
         <p class="alerta-form" id="form-importar-error" role="alert" hidden></p>
         <div class="campo">
           <label for="importar-archivo">Archivo Excel (.xlsx)</label>
@@ -247,5 +309,8 @@
   <script src="/static/js/api.js"></script>
   <script src="/static/js/app.js"></script>
   <script src="/static/js/analytics.js"></script>
+  <script src="/static/js/workspace.js"></script>
+  <script src="/static/js/equipment-detail.js"></script>
+  <script src="/static/js/equipment.js"></script>
 </body>
 </html>

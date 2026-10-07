@@ -40,8 +40,8 @@ const ORDEN_INICIAL = { campo: "id", sentido: "asc" };
 // Columnas de la tabla de equipos; las que tienen `orden` se ordenan con un clic.
 const COLUMNAS_EQUIPOS = [
   { titulo: "Equipo", orden: "brand" },
-  { titulo: "Identificación", orden: "inventoryNumber" },
-  { titulo: "Área", orden: "location" },
+  { titulo: "Inventario / Serie", orden: "inventoryNumber" },
+  { titulo: "Ubicación", orden: "location" },
   { titulo: "Condición", orden: "status" },
   { titulo: "Disponibilidad" },
   { titulo: "" },
@@ -134,9 +134,11 @@ const estado = {
 const esVistaAnalitica = () => estado.seccion === "resumen" || estado.seccion === "reportes";
 
 function invalidarAnalitica() {
+  if (typeof invalidarEquipos === "function") invalidarEquipos();
   ++estado.analitica.solicitud;
   estado.analitica.datos = null;
   if (esVistaAnalitica()) cargarAnalitica();
+  if (typeof cargarPanelInventario === "function") cargarPanelInventario();
 }
 const filtrosActuales = () => estado.filtros[estado.seccion];
 
@@ -233,13 +235,17 @@ function celda(clase, etiqueta, ...contenido) {
 }
 
 // Nombre + ícono. El tipo no se muestra como texto: queda en el tooltip del ícono y en el filtro.
-function celdaEquipo(it) {
+function celdaEquipo(it, seleccionable = false) {
   return h("div", { class: "celda celda--equipo" },
     h("div", { class: "equipo__icono", title: it.tipo_dispositivo || "Sin tipo" },
       iconoNodo(ICONO_POR_TIPO[it.tipo_dispositivo] || "caja", 18)),
     h("div", { class: "equipo__texto" },
-      h("h3", { class: "equipo__nombre" }, nombreItem(it), h("span", { class: "equipo__id" }, `#${it.id}`)),
-      it.observacion ? h("p", { class: "observacion" }, it.observacion) : null));
+      h("h3", { class: "equipo__nombre" }, seleccionable
+        ? h("button", { type: "button", class: "equipo-seleccionar", dataset: { ficha: it.id }, "aria-label": `Ver ficha de ${nombreItem(it)}`, onclick: () => abrirFichaEquipo(it.id) }, nombreItem(it))
+        : nombreItem(it), h("span", { class: "equipo__id" }, `#${it.id}`)),
+      h("p", { class: "equipo__tipo" }, it.tipo_dispositivo || "Sin tipo"),
+      it.observacion ? h("p", { class: "observacion" }, it.observacion) : null,
+      it.equipo_id ? enlaceEquipo(it.equipo_id) : null));
 }
 
 function identificacion(it) {
@@ -265,8 +271,10 @@ function condicion(it) {
 function disponibilidad(it) {
   if (!esIndividual(it)) {
     if (it.cantidad <= 0) return [h("span", { class: "insignia insignia--peligro" }, "Sin stock")];
-    if (it.cantidad <= UMBRAL_BAJO_STOCK) return [h("span", { class: "insignia insignia--aviso" }, "Bajo stock")];
-    return [h("span", { class: "insignia insignia--neutra" }, "Stock óptimo")];
+    if (it.cantidad <= UMBRAL_BAJO_STOCK) {
+      return [h("span", { class: "insignia insignia--aviso", title: `Quedan ${UMBRAL_BAJO_STOCK} unidades o menos` }, "Stock bajo")];
+    }
+    return [h("span", { class: "insignia insignia--exito" }, "En stock")];
   }
   if (estaPrestado(it)) {
     const desde = formatearFecha(it.fecha_prestamo);
@@ -276,32 +284,20 @@ function disponibilidad(it) {
       desde ? h("div", { class: "texto-suave" }, `Desde ${desde}`) : null,
     ];
   }
-  if (!esPrestable(it)) return [h("span", { class: "texto-suave" }, "Uso fijo")];
+  if (!esPrestable(it)) return [h("span", { class: "texto-suave", title: "Este tipo de equipo no se presta" }, "Uso fijo")];
   return [h("span", { class: "insignia insignia--exito" }, "Disponible")];
 }
 
-// Préstamos y devoluciones todavía no tienen endpoint: el botón se conserva
-// (es parte del diseño) pero solo informa.
-function botonPrestamoInactivo(nombreIcono, texto, azul = false) {
-  return h("button", {
-    type: "button", class: `boton boton--chico boton--inactivo${azul ? " boton--azul" : ""}`, "aria-disabled": "true",
-    title: "Los préstamos todavía no están disponibles",
-    onclick: () => avisar("Los préstamos todavía no están disponibles en esta versión.", "info"),
-  }, iconoNodo(nombreIcono, 14), texto);
-}
-
+// Préstamos y devoluciones todavía no tienen endpoint: no se muestran botones
+// que no hacen nada. La disponibilidad sigue visible en su columna.
 function acciones(it) {
   const ocupado = estado.pendientes.has(it.id);
   let principal = null;
-  if (!esIndividual(it)) {
+  if (!esIndividual(it) && !it.equipo_id) {
     principal = h("button", {
       type: "button", class: "boton boton--chico", disabled: ocupado || it.cantidad <= 0,
-      title: it.cantidad <= 0 ? "Sin stock" : null, onclick: () => entregarUno(it),
+      title: it.cantidad <= 0 ? "Sin stock" : "Descontar una unidad del stock", onclick: () => entregarUno(it),
     }, iconoNodo("packageMinus", 14), "Entregar 1");
-  } else if (estaPrestado(it)) {
-    principal = botonPrestamoInactivo("devolver", "Devolver");
-  } else if (esPrestable(it)) {
-    principal = botonPrestamoInactivo("userCheck", "Prestar", true);
   }
   const mas = h("button", {
     type: "button", class: "boton-icono", "aria-label": `Más opciones para ${nombreItem(it)}`,
@@ -309,6 +305,13 @@ function acciones(it) {
     onclick: (e) => { e.stopPropagation(); alternarMenu(it, e.currentTarget); },
   }, iconoNodo("masOpciones", 18));
   return h("div", { class: "celda celda--acciones" }, principal, mas);
+}
+
+// Título y explicación de cada sección, con acciones opcionales a la derecha.
+function cabeceraVista(titulo, descripcion, ...accionesVista) {
+  return h("header", { class: "vista-cabecera" },
+    h("div", {}, h("h2", {}, titulo), h("p", { class: "vista-cabecera__descripcion" }, descripcion)),
+    accionesVista.length ? h("div", { class: "vista-cabecera__acciones" }, ...accionesVista) : null);
 }
 
 function vacio(mensaje) {
@@ -326,9 +329,10 @@ function estadoError(mensaje) {
 }
 
 function selector(filtro, textoTodos) {
+  const etiqueta = ({ tipo: "Tipo", marca: "Marca", area: "Ubicación", condicion: "Condición" })[filtro] || textoTodos;
   return h("label", { class: "selector" },
     h("span", { class: "solo-lector" }, textoTodos),
-    h("select", { dataset: { filtro, todos: textoTodos } }),
+    h("select", { dataset: { filtro, todos: etiqueta } }),
     iconoNodo("chevron", 16));
 }
 
@@ -381,7 +385,7 @@ function actualizarOpcionesFiltros() {
     condicion: Object.entries(CONDICIONES).map(([valor, c]) => [valor, c.etiqueta]),
     inventario: [["true", "Con N° de inventario"], ["false", "Sin N° (consumibles)"]],
   };
-  document.querySelectorAll("#contenido select[data-filtro]").forEach((select) => {
+  document.querySelectorAll("select[data-filtro]").forEach((select) => {
     const campo = select.dataset.filtro;
     const fijo = fijos[campo];
     const valor = fijo ?? f[campo];
@@ -485,7 +489,9 @@ function actualizarPaginacion() {
 
 function plantillaEquipos() {
   return [
-    h("header", { class: "vista-cabecera" }, h("h2", {}, "Equipos y stock"), h("p", { class: "texto-suave" }, "Equipos individuales y materiales")),
+    cabeceraVista("Inventario general",
+      "Equipos con número de inventario y materiales que se controlan por cantidad."),
+    h("div", { id: "panel-inventario", class: "panel-inventario", "aria-label": "Resumen del inventario completo" }),
     barraFiltros("equipos"),
     h("section", { class: "tarjeta-lista" },
       h("div", { class: "tarjeta-lista__barra" },
@@ -496,13 +502,15 @@ function plantillaEquipos() {
       cabeceraEquipos(),
       h("div", { id: "lista" }),
       pieDePaginacion()),
+    h("section", { id: "actividad-inventario", class: "actividad-inventario", "aria-label": "Últimos movimientos" }),
   ];
 }
 
 function filaEquipo(it) {
   const ocupado = estado.pendientes.has(it.id);
-  return h("article", { class: `fila tabla--equipos${ocupado ? " fila--ocupada" : ""}`, "aria-busy": ocupado ? "true" : null },
-    celdaEquipo(it),
+  return h("article", { class: `fila tabla--equipos${ocupado ? " fila--ocupada" : ""}`, dataset: { equipo: it.id }, "aria-busy": ocupado ? "true" : null,
+    onclick: (e) => { if (!e.target.closest("button, a, input, select")) abrirFichaEquipo(it.id); } },
+    celdaEquipo(it, true),
     celda("celda--ident", esIndividual(it) ? "Identificación" : "Cantidad", ...identificacion(it)),
     celda("celda--area", "Área", area(it)),
     celda("celda--condicion", "Condición", condicion(it)),
@@ -513,6 +521,7 @@ function filaEquipo(it) {
 // Las pestañas son filtros del backend: el total de la pestaña activa lo da
 // el contador de resultados.
 function renderEquipos() {
+  if (typeof renderPanelInventario === "function") renderPanelInventario();
   const f = estado.filtros.equipos;
   const pestanas = document.getElementById("pestanas");
   if (!pestanas.childElementCount) {
@@ -537,10 +546,11 @@ function renderEquipos() {
 
 function plantillaAires() {
   return [
-    h("header", { class: "vista-cabecera" }, h("h2", {}, "Aires acondicionados")),
+    cabeceraVista("Aires acondicionados",
+      "Equipos instalados, agrupados por área. Haga clic en un área para ver solo sus equipos."),
     h("section", { class: "resumen" },
       h("div", { class: "resumen__titulo" },
-        h("h2", {}, "Distribución por área"),
+        h("h3", {}, "Distribución por área"),
         h("p", { class: "texto-suave", id: "resumen-texto" })),
       h("div", { class: "resumen__grilla", id: "resumen-aires" })),
     barraFiltros("aires"),
@@ -633,20 +643,32 @@ function pintarLista(construirFilas, mensajeVacio) {
 // Reconstruye toda la sección (al cambiar de sección o limpiar filtros).
 function renderSeccion() {
   cerrarMenu();
+  if (typeof prepararDistribucionInventario === "function") prepararDistribucionInventario(false);
+  const ruta = document.getElementById("ruta-seccion");
+  if (ruta) ruta.textContent = ({ equipos: "Inventario general", pcs: "Equipos", aires: "Aires acondicionados", resumen: "Resumen", reportes: "Reportes" })[estado.seccion];
   document.querySelectorAll("[data-seccion]").forEach((b) => {
     const activa = b.dataset.seccion === estado.seccion;
     b.classList.toggle("seccion--activa", activa);
     b.setAttribute("aria-current", activa ? "page" : "false");
   });
+  if (estado.seccion === "pcs") { renderEquiposPC(); return; }
   if (esVistaAnalitica()) { renderAnalitica(); return; }
   document.getElementById("contenido").replaceChildren(
     ...(estado.seccion === "aires" ? plantillaAires() : plantillaEquipos()));
+  if (typeof prepararDistribucionInventario === "function") prepararDistribucionInventario(true);
   if (estado.seccion === "equipos" && estado.alcanceResumen) {
-    document.getElementById("contenido").prepend(h("div", { class: "alcance-resumen" },
-      h("p", {}, `Consulta del resumen · Todas las categorías · ${estado.alcanceResumen.includeRetired ? "Con bajas" : "Sin bajas"}${estado.alcanceResumen.availability ? ` · ${estado.alcanceResumen.availability === "PRESTADO" ? "Prestados" : "Disponibles"}` : ""}`),
+    const { includeRetired, availability } = estado.alcanceResumen;
+    const detalle = [
+      "incluye aires acondicionados",
+      includeRetired ? "incluye dados de baja" : null,
+      availability ? `solo ${availability === "PRESTADO" ? "prestados" : "disponibles"}` : null,
+    ].filter(Boolean).join(", ");
+    document.getElementById("contenido").prepend(h("div", { class: "alcance-resumen", role: "status" },
+      iconoNodo("info", 16),
+      h("p", {}, h("strong", {}, "Listado abierto desde el Resumen"), ` (${detalle}).`),
       h("button", { type: "button", class: "boton boton--secundario", onclick: () => {
         estado.alcanceResumen = null; limpiarFiltros();
-      } }, "Quitar alcance")));
+      } }, "Volver al listado normal")));
   }
   renderResultados();
 }
@@ -654,10 +676,13 @@ function renderSeccion() {
 // Actualiza resultados, filtros y contadores sin recrear el buscador.
 function renderResultados() {
   cerrarMenu();
+  if (estado.seccion === "pcs") { renderEquiposPC(); actualizarContadoresSecciones(); return; }
+  document.getElementById("contenido").removeAttribute("aria-busy");
   if (esVistaAnalitica()) { renderAnalitica(); actualizarContadoresSecciones(); return; }
   if (estado.seccion === "aires") renderAires(); else renderEquipos();
   actualizarOpcionesFiltros();
   actualizarContadoresSecciones();
+  if (typeof sincronizarFichaEquipo === "function") sincronizarFichaEquipo();
 }
 
 function actualizarContadoresSecciones() {
@@ -678,7 +703,7 @@ let temporizadorBusqueda = null;
 // orden y la página actuales. Si llega una respuesta vieja después de una
 // nueva (búsquedas o clics rápidos), se descarta.
 async function cargarItems() {
-  if (esVistaAnalitica()) return true;
+  if (esVistaAnalitica() || estado.seccion === "pcs") return true;
   clearTimeout(temporizadorBusqueda);
   const solicitud = ++ultimaSolicitud;
   const seccion = estado.seccion;
@@ -939,6 +964,7 @@ async function importarExcel(e) {
     if (importacionRealizada === null) {
       const { imported } = await api.importInventory(archivo);
       importacionRealizada = imported;
+      if (typeof cerrarFichaEquipo === "function") cerrarFichaEquipo(false);
       invalidarAnalitica();
       const resultado = document.getElementById("importar-resultado");
       resultado.textContent = `Importación exitosa: ${plural(imported, "registro importado", "registros importados")}.`;
@@ -1033,6 +1059,12 @@ function navegarMenu(e) {
 const formItem = { idEditando: null, enviando: false };
 const campoForm = (nombre) => document.getElementById("form-item").elements[nombre];
 
+// HasInventory se elige con dos opciones: equipo individual o material por cantidad.
+const tieneInventarioForm = () => document.getElementById("f-modo-individual").checked;
+function marcarTieneInventario(tiene) {
+  document.getElementById(tiene ? "f-modo-individual" : "f-modo-stock").checked = true;
+}
+
 function llenarSugerencias() {
   const opciones = (valores) => valores.map((v) => h("option", { value: v }));
   document.getElementById("lista-tipos").replaceChildren(
@@ -1043,11 +1075,11 @@ function llenarSugerencias() {
 // Coherencia HasInventory / InventoryNumber: sin inventario no hay número, y
 // un equipo individual es unitario (así lo muestra la lista).
 function sincronizarInventario() {
-  const tiene = campoForm("tiene_inventario").checked;
+  const tiene = tieneInventarioForm();
   const numero = campoForm("numero_inventario");
   const cantidad = campoForm("cantidad");
   numero.disabled = !tiene;
-  document.getElementById("f-numero-obligatorio").hidden = !tiene;
+  document.getElementById("campo-numero").hidden = !tiene;
   if (!tiene) {
     numero.value = "";
     limpiarErrorCampo("numero_inventario");
@@ -1068,12 +1100,13 @@ function abrirFormulario(item = null) {
   document.querySelector("#form-item-guardar .boton__texto").textContent = item ? "Guardar cambios" : "Crear elemento";
 
   const valores = item || { tiene_inventario: true, cantidad: 1, estado: "OPERATIVO" };
-  campoForm("tiene_inventario").checked = Boolean(valores.tiene_inventario);
+  marcarTieneInventario(Boolean(valores.tiene_inventario));
   for (const nombre of ["numero_inventario", "numero_serie", "tipo_dispositivo", "ubicacion", "marca", "modelo", "observacion"]) {
     campoForm(nombre).value = valores[nombre] || "";
   }
   campoForm("cantidad").value = String(valores.cantidad ?? 0);
   campoForm("estado").value = valores.estado || "OPERATIVO";
+  prepararEquipoFormulario(item);
   sincronizarInventario();
 
   const fechas = document.getElementById("form-item-fechas");
@@ -1088,7 +1121,7 @@ function abrirFormulario(item = null) {
 
 function leerFormulario() {
   const valor = (nombre) => campoForm(nombre).value.trim();
-  const tiene = campoForm("tiene_inventario").checked;
+  const tiene = tieneInventarioForm();
   const cantidadTexto = valor("cantidad");
   return {
     numero_inventario: tiene ? valor("numero_inventario") : "",
@@ -1101,6 +1134,7 @@ function leerFormulario() {
     ubicacion: valor("ubicacion"),
     estado: campoForm("estado").value,
     observacion: valor("observacion"),
+    ...(formItem.idEditando === null ? { equipo_id: Number(valor("equipo_id")) } : {}),
   };
 }
 
@@ -1403,6 +1437,7 @@ function cambiarSeccion(seccion) {
   if (seccion === estado.seccion) return;
   ++ultimaSolicitud;
   ++estado.analitica.solicitud;
+  if (typeof equiposPC !== "undefined") ++equiposPC.solicitud;
   estado.cargando = false;
   estado.seccion = seccion;
   estado.analitica.datos = null;
@@ -1410,7 +1445,8 @@ function cambiarSeccion(seccion) {
   estado.analitica.cargando = false;
   history.replaceState(null, "", seccion === "equipos" ? location.pathname : `#${seccion}`);
   renderSeccion();
-  if (esVistaAnalitica()) cargarAnalitica(); else cargarItems();
+  if (seccion === "pcs") cargarEquiposPC();
+  else if (esVistaAnalitica()) cargarAnalitica(); else cargarItems();
 }
 
 function limpiarFiltros() {
@@ -1481,10 +1517,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (importacionOcupada) e.preventDefault();
   });
 
-  if (["#aires", "#resumen", "#reportes"].includes(location.hash)) estado.seccion = location.hash.slice(1);
+  if (["#aires", "#resumen", "#reportes", "#pcs"].includes(location.hash)) estado.seccion = location.hash.slice(1);
   renderSeccion();
   cargarTodo();
   if (esVistaAnalitica()) cargarAnalitica();
+  if (estado.seccion === "pcs") cargarEquiposPC();
 
   document.getElementById("secciones").addEventListener("click", (e) => {
     const boton = e.target.closest("[data-seccion]");
@@ -1495,7 +1532,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Todos los filtros los resuelve el backend: los de texto con espera, los
   // selectores al instante. Cualquier cambio vuelve a la página 1.
-  contenido.addEventListener("input", (e) => {
+  function manejarEntradaFiltros(e) {
     const { filtro, control } = e.target.dataset;
     if (filtro) {
       if (filtro === "busqueda") estado.consulta = e.target.value;
@@ -1509,6 +1546,17 @@ document.addEventListener("DOMContentLoaded", () => {
       estado.tamPagina = Number(e.target.value);
       recargarDesdeElInicio();
     }
+  }
+  contenido.addEventListener("input", manejarEntradaFiltros);
+  const filtrosLaterales = document.getElementById("filtros-laterales-contenido");
+  filtrosLaterales.addEventListener("input", manejarEntradaFiltros);
+  filtrosLaterales.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && FILTROS_DE_TEXTO.has(e.target.dataset.filtro)) recargarDesdeElInicio();
+  });
+  filtrosLaterales.addEventListener("click", (e) => {
+    const mas = e.target.closest('[data-accion="mas-filtros"]');
+    if (mas) alternarMasFiltros(mas);
+    else if (e.target.closest('[data-accion="limpiar"]')) limpiarFiltros();
   });
   contenido.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && FILTROS_DE_TEXTO.has(e.target.dataset.filtro)) recargarDesdeElInicio(); // sin esperar
@@ -1543,7 +1591,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Formularios y diálogos.
   document.getElementById("form-item").addEventListener("submit", guardarItem);
-  document.getElementById("f-tiene").addEventListener("change", sincronizarInventario);
+  document.querySelectorAll('[name="modo_registro"]').forEach((r) => r.addEventListener("change", sincronizarInventario));
   document.getElementById("form-item").addEventListener("input", (e) => {
     if (e.target.name) limpiarErrorCampo(e.target.name);
   });

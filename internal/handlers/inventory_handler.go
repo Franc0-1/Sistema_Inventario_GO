@@ -30,6 +30,8 @@ func NewInventoryHandler(service services.InventoryService) *InventoryHandler {
 // RegisterRoutes registra las rutas de la API. Cada ruta despacha por método
 // para responder 405 en JSON (con Allow) en lugar del texto plano de ServeMux.
 func (h *InventoryHandler) RegisterRoutes(mux *http.ServeMux) {
+	mux.Handle("/api/equipment", methods{http.MethodGet: h.equipments})
+	mux.Handle("/api/inventory/{id}/equipment", methods{http.MethodPut: h.setEquipment})
 	mux.Handle("/api/inventory/summary", methods{http.MethodGet: h.summary})
 	mux.Handle("/api/inventory/reports", methods{http.MethodGet: h.report})
 	mux.Handle("/api/inventory", methods{
@@ -183,6 +185,10 @@ func (h *InventoryHandler) update(w http.ResponseWriter, r *http.Request) {
 	var req UpdateItemRequest
 	if reqErr := decodeJSON(w, r, &req); reqErr != nil {
 		writeRequestError(w, reqErr)
+		return
+	}
+	if req.EquipmentID != nil {
+		writeError(w, http.StatusBadRequest, CodeInvalidRequest, "use el endpoint de asociacion para cambiar equipo_id")
 		return
 	}
 	item := req.toItem()

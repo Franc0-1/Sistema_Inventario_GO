@@ -28,6 +28,8 @@ func (s *inventoryService) ApplyMovement(ctx context.Context, id int, op models.
 		return models.Item{}, err
 	}
 
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 	current, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return models.Item{}, err
@@ -38,6 +40,16 @@ func (s *inventoryService) ApplyMovement(ctx context.Context, id int, op models.
 	}
 	if err := validateMovement(mov); err != nil {
 		return models.Item{}, err
+	}
+	if current.EquipmentID != 0 && mov.NewQuantity != 1 {
+		return models.Item{}, fmt.Errorf("%w: desvincule el componente antes de cambiar su cantidad", ErrInvalidItem)
+	}
+	if models.IsEquipment(current) && mov.NewQuantity != 1 {
+		changed := current
+		changed.Quantity = mov.NewQuantity
+		if err := s.checkUniqueness(ctx, changed); err != nil {
+			return models.Item{}, err
+		}
 	}
 
 	if op.Type == models.MovementTransfer {

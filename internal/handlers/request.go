@@ -39,6 +39,7 @@ type ItemRequest struct {
 	Location        string            `json:"ubicacion"`
 	Status          models.ItemStatus `json:"estado"`
 	Notes           string            `json:"observacion"`
+	EquipmentID     *int              `json:"equipo_id"`
 }
 
 type (
@@ -48,6 +49,10 @@ type (
 
 // toItem copia los campos tal cual: normalizar y validar es tarea del servicio.
 func (r ItemRequest) toItem() models.Item {
+	equipmentID := 0
+	if r.EquipmentID != nil {
+		equipmentID = *r.EquipmentID
+	}
 	return models.Item{
 		InventoryNumber: r.InventoryNumber,
 		HasInventory:    r.HasInventory,
@@ -59,6 +64,7 @@ func (r ItemRequest) toItem() models.Item {
 		Location:        r.Location,
 		Status:          r.Status,
 		Notes:           r.Notes,
+		EquipmentID:     equipmentID,
 	}
 }
 

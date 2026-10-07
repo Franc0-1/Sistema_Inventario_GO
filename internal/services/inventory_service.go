@@ -97,9 +97,20 @@ func (s *inventoryService) Delete(ctx context.Context, id int) error {
 	if err := validateID(id); err != nil {
 		return err
 	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
 	current, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
+	}
+	items, err := s.repo.GetAll(ctx)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		if item.EquipmentID == id {
+			return fmt.Errorf("%w: desvincule los componentes antes de eliminar el gabinete", ErrInvalidItem)
+		}
 	}
 	return s.repo.Delete(ctx, id, current.UpdatedAt)
 }
@@ -152,7 +163,10 @@ func (s *inventoryService) checkUniqueness(ctx context.Context, item models.Item
 	if err != nil {
 		return err
 	}
-	return checkUniqueness(existing, item)
+	if err := checkUniqueness(existing, item); err != nil {
+		return err
+	}
+	return validateEquipmentChange(existing, item)
 }
 
 // asNewItem descarta lo que el cliente no puede definir en un alta: el ID y
@@ -170,5 +184,6 @@ func asNewItem(item models.Item) models.Item {
 func keepManagedFields(item, current models.Item) models.Item {
 	item.ID, item.CreatedAt = current.ID, current.CreatedAt
 	item.Availability, item.AssignedTo, item.LoanedAt = current.Availability, current.AssignedTo, current.LoanedAt
+	item.EquipmentID = current.EquipmentID
 	return item
 }

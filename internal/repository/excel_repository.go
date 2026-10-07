@@ -340,6 +340,10 @@ func ensureSheet(f *excelize.File, s sheetSchema) (bool, error) {
 	if slices.Equal(trimTrailingEmpty(current), s.header) {
 		return false, nil
 	}
+	// La asociacion es opcional: abrir un libro anterior no lo modifica.
+	if s.name == SheetInventory && len(trimTrailingEmpty(current)) == colEquipmentID && isPrefixOf(current, s.header) {
+		return false, nil
+	}
 	if !hasData || isPrefixOf(current, s.header) || matchesLegacyHeader(current, s) {
 		return true, writeHeader(f, s, current)
 	}
@@ -410,6 +414,17 @@ func writeHeader(f *excelize.File, s sheetSchema, previous []string) error {
 }
 
 func setRow(f *excelize.File, sheet string, rowNum int, values []any) error {
+	if sheet == SheetInventory && rowNum > headerRow && len(values) > colEquipmentID {
+		header, _, err := readHeader(f, sheet)
+		if err != nil {
+			return err
+		}
+		if len(header) < inventoryColumns {
+			if err := writeHeader(f, inventorySchema, header); err != nil {
+				return err
+			}
+		}
+	}
 	cell, err := excelize.CoordinatesToCellName(1, rowNum)
 	if err == nil {
 		err = f.SetSheetRow(sheet, cell, &values)

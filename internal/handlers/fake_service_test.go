@@ -31,6 +31,15 @@ type fakeService struct {
 
 var _ services.InventoryService = (*fakeService)(nil)
 
+func (f *fakeService) Equipments(context.Context, bool) ([]models.Equipment, error) {
+	f.calls = append(f.calls, "Equipments")
+	return []models.Equipment{}, f.err
+}
+func (f *fakeService) SetEquipment(_ context.Context, id, parent int) (models.Item, error) {
+	f.calls, f.gotID, f.gotQuantity = append(f.calls, "SetEquipment"), id, parent
+	return f.item, f.err
+}
+
 func (f *fakeService) Summary(context.Context) (models.InventorySummary, error) {
 	f.calls = append(f.calls, "Summary")
 	return models.InventorySummary{}, f.err

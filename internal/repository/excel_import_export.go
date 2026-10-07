@@ -13,31 +13,33 @@ import (
 	"inventario/internal/models"
 )
 
-// ExportInventory genera un libro nuevo con la hoja Inventario completa. No
-// abre el camino de escritura ni toca el archivo real.
+// ExportInventory genera un libro nuevo con el inventario en español y solo
+// las columnas útiles para una persona (ver exportSchema). No abre el camino
+// de escritura ni toca el archivo real.
 func (r *ExcelRepository) ExportInventory(ctx context.Context) ([]byte, error) {
 	items, err := r.GetAll(ctx)
 	if err != nil {
 		return nil, err
 	}
-	f := excelize.NewFile()
-	defer f.Close()
-	if err := f.SetSheetName(f.GetSheetName(0), SheetInventory); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrWriteFailed, err)
-	}
-	if err := writeHeader(f, inventorySchema, nil); err != nil {
-		return nil, err
-	}
-	for i, item := range items {
-		if err := setRow(f, SheetInventory, headerRow+1+i, itemToRow(item)); err != nil {
-			return nil, err
-		}
-	}
+	return writeExportWorkbook(items)
+}
+
+func writeBytes(f *excelize.File) ([]byte, error) {
 	var buf bytes.Buffer
 	if _, err := f.WriteTo(&buf); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrWriteFailed, err)
 	}
 	return buf.Bytes(), nil
+}
+
+// importData es el archivo recibido ya validado, en uno de los dos formatos:
+// el técnico (ítems completos) o el descargado en español (filas a completar
+// contra el libro real).
+type importData struct {
+	items     []models.Item
+	maxID     int
+	spanish   []spanishRow
+	isSpanish bool
 }
 
 // ImportInventory valida primero el archivo recibido completo y recién después
@@ -46,7 +48,7 @@ func (r *ExcelRepository) ImportInventory(ctx context.Context, src io.Reader) (i
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	items, maxImportedID, err := readImportWorkbook(src)
+	data, err := readImportWorkbook(src)
 	if err != nil {
 		return 0, err
 	}
@@ -66,6 +68,30 @@ func (r *ExcelRepository) ImportInventory(ctx context.Context, src io.Reader) (i
 	if err != nil {
 		return 0, err
 	}
+	items, maxImportedID := data.items, data.maxID
+	if data.isSpanish {
+		current, err := readInventoryItems(f)
+		if err != nil {
+			return 0, err
+		}
+		if items, maxImportedID, err = resolveSpanishRows(data.spanish, current, lastIssued, r.timestamp); err != nil {
+			return 0, err
+		}
+	}
+	schema, equipmentCol, numberCol := inventorySchema, colEquipmentID, colInventoryNumber
+	rows := make([]int, len(items))
+	for i := range rows {
+		rows[i] = i + headerRow + 1
+	}
+	if data.isSpanish {
+		schema, equipmentCol, numberCol = exportSchema, expEquipmentID, expInventoryNumber
+		for i := range rows {
+			rows[i] = data.spanish[i].row
+		}
+	}
+	if err := validateImportedEquipment(items, rows, schema, equipmentCol, numberCol); err != nil {
+		return 0, err
+	}
 	if err := replaceInventoryRows(f, items); err != nil {
 		return 0, err
 	}
@@ -81,31 +107,56 @@ func (r *ExcelRepository) ImportInventory(ctx context.Context, src io.Reader) (i
 	return len(items), nil
 }
 
-func readImportWorkbook(src io.Reader) ([]models.Item, int, error) {
+// readInventoryItems lee todos los ítems de un libro ya abierto (sin lock: se
+// llama dentro de una operación que ya lo tiene).
+func readInventoryItems(f *excelize.File) ([]models.Item, error) {
+	items := []models.Item{}
+	err := scanRows(f, inventorySchema, requiredInventoryColumns, func(rowNum int, cells []string) (bool, error) {
+		item, err := rowToItem(cells, rowNum)
+		if err != nil {
+			return true, err
+		}
+		items = append(items, item)
+		return false, nil
+	})
+	return items, err
+}
+
+func readImportWorkbook(src io.Reader) (importData, error) {
 	f, err := excelize.OpenReader(src)
 	if err != nil {
-		return nil, 0, fmt.Errorf("%w: archivo Excel inválido", ErrInvalidWorkbook)
+		return importData{}, fmt.Errorf("%w: archivo Excel inválido", ErrInvalidWorkbook)
 	}
 	defer f.Close()
 	if err := requireSheets(f, SheetInventory); err != nil {
-		return nil, 0, err
+		return importData{}, err
 	}
 	header, _, err := readHeader(f, SheetInventory)
 	if err != nil {
-		return nil, 0, err
+		return importData{}, err
 	}
-	if err := checkHeader(inventorySchema, header, inventoryColumns); err != nil {
+	if !isTechnicalHeader(header) {
+		rows, err := readSpanishRows(f)
+		return importData{spanish: rows, isSpanish: true}, err
+	}
+	items, maxID, err := readTechnicalRows(f, header)
+	return importData{items: items, maxID: maxID}, err
+}
+
+// readTechnicalRows lee el formato interno completo (encabezados en inglés).
+func readTechnicalRows(f *excelize.File, header []string) ([]models.Item, int, error) {
+	if err := checkHeader(inventorySchema, header, colLoanedAt+1); err != nil {
 		return nil, 0, err
 	}
 
 	items := []models.Item{}
 	seen := importSeen{
-		ids:              map[int]bool{},
-		inventoryNumbers: map[string]int{},
-		serialNumbers:    map[string]int{},
+		ids:           map[int]bool{},
+		serialNumbers: map[string]int{},
 	}
 	maxID := 0
-	err = scanRows(f, inventorySchema, inventoryColumns, func(rowNum int, cells []string) (bool, error) {
+	rows := []int{}
+	err := scanRows(f, inventorySchema, colLoanedAt+1, func(rowNum int, cells []string) (bool, error) {
 		item, err := rowToItem(cells, rowNum)
 		if err != nil {
 			return true, err
@@ -115,26 +166,26 @@ func readImportWorkbook(src io.Reader) ([]models.Item, int, error) {
 		}
 		seen.add(item, rowNum)
 		items = append(items, item)
+		rows = append(rows, rowNum)
 		maxID = max(maxID, item.ID)
 		return false, nil
 	})
 	if err != nil {
 		return nil, 0, err
 	}
+	if err := validateImportedEquipment(items, rows, inventorySchema, colEquipmentID, colInventoryNumber); err != nil {
+		return nil, 0, err
+	}
 	return items, maxID, nil
 }
 
 type importSeen struct {
-	ids              map[int]bool
-	inventoryNumbers map[string]int
-	serialNumbers    map[string]int
+	ids           map[int]bool
+	serialNumbers map[string]int
 }
 
 func (s importSeen) add(item models.Item, row int) {
 	s.ids[item.ID] = true
-	if key := normalizedIdentifier(item.InventoryNumber); key != "" {
-		s.inventoryNumbers[key] = row
-	}
 	if key := normalizedIdentifier(item.SerialNumber); key != "" {
 		s.serialNumbers[key] = row
 	}
@@ -149,11 +200,6 @@ func importItemProblem(item models.Item, seen importSeen) (int, error) {
 		return colStatus, fmt.Errorf("estado %q desconocido", item.Status)
 	case item.Availability != models.Available && item.Availability != models.Loaned:
 		return colAvailability, fmt.Errorf("disponibilidad %q desconocida", item.Availability)
-	}
-	if key := normalizedIdentifier(item.InventoryNumber); key != "" {
-		if row := seen.inventoryNumbers[key]; row != 0 {
-			return colInventoryNumber, fmt.Errorf("número de inventario %q duplicado (fila %d)", item.InventoryNumber, row)
-		}
 	}
 	if key := normalizedIdentifier(item.SerialNumber); key != "" {
 		if row := seen.serialNumbers[key]; row != 0 {

@@ -18,8 +18,8 @@ import (
 //                      sobre el temporal antes de reemplazar el original).
 
 // validateStructure exige las hojas Inventario y Movimientos con sus
-// encabezados exactos. En Inventario, A–M son obligatorias y N–P (préstamos)
-// la única extensión admitida.
+// encabezados exactos. En Inventario, A-M son obligatorias; N-P (prestamos)
+// y Q (equipo padre) son extensiones opcionales.
 func validateStructure(f *excelize.File) error {
 	if err := requireSheets(f, requiredSheets...); err != nil {
 		return err
@@ -62,6 +62,8 @@ func validateWorkbook(f *excelize.File) error {
 
 func validateInventoryRows(f *excelize.File) (ids map[int]bool, maxID int, err error) {
 	ids = map[int]bool{}
+	items := []models.Item{}
+	rows := map[int]int{}
 	err = scanRows(f, inventorySchema, requiredInventoryColumns, func(rowNum int, cells []string) (bool, error) {
 		item, err := rowToItem(cells, rowNum)
 		if err != nil {
@@ -71,8 +73,18 @@ func validateInventoryRows(f *excelize.File) (ids map[int]bool, maxID int, err e
 			return true, dataError(inventorySchema, rowNum, col, problem)
 		}
 		ids[item.ID], maxID = true, max(maxID, item.ID)
+		items = append(items, item)
+		rows[item.ID] = rowNum
 		return false, nil
 	})
+	if err == nil {
+		if problem := models.ValidateEquipment(items); problem != nil {
+			var relation *models.EquipmentError
+			if errors.As(problem, &relation) {
+				err = dataError(inventorySchema, rows[relation.ItemID], colEquipmentID, problem)
+			}
+		}
+	}
 	return ids, maxID, err
 }
 

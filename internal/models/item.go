@@ -39,7 +39,8 @@ const (
 	Loaned    Availability = "PRESTADO"
 )
 
-// Item es una fila de la hoja "Inventario".
+// Item es una fila de la hoja "Inventario". EquipmentID relaciona componentes
+// con el ID de su gabinete, sin cambiar sus identificadores originales.
 //
 // HasInventory distingue los dos tipos de ítem:
 //   - true:  equipo individual (N° de inventario, serie, Quantity = 1, se presta).
@@ -66,6 +67,7 @@ type Item struct {
 	Availability Availability `json:"disponibilidad"`
 	AssignedTo   string       `json:"asignado_a"`               // vacío si está DISPONIBLE
 	LoanedAt     *time.Time   `json:"fecha_prestamo,omitempty"` // nil si está DISPONIBLE
+	EquipmentID  int          `json:"equipo_id"`                // ID del gabinete; 0 = sin asociacion
 }
 
 // ItemFilter agrupa los criterios de búsqueda. Los campos vacíos no filtran

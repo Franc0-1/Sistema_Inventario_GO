@@ -67,13 +67,16 @@ func TestExportInventory_Valido(t *testing.T) {
 	data, err := repo.ExportInventory(context.Background())
 	must(t, err)
 	assertIntacto(t, repo.path, antes)
-	items, _, err := readImportWorkbook(bytes.NewReader(data))
+	parsed, err := readImportWorkbook(bytes.NewReader(data))
 	must(t, err)
-	if got, want := len(items), 6; got != want {
+	if !parsed.isSpanish {
+		t.Fatal("la exportación debería estar en el formato en español")
+	}
+	if got, want := len(parsed.spanish), 6; got != want {
 		t.Fatalf("exportó %d ítems; se esperaban %d", got, want)
 	}
-	if items[0].InventoryNumber != "1001" || items[0].AssignedTo == "" || items[0].Availability != models.Loaned {
-		t.Errorf("la exportación no conservó todos los campos reales: %+v", items[0])
+	if it := parsed.spanish[0].item; it.InventoryNumber != "1001" || it.AssignedTo == "" || it.Availability != models.Loaned {
+		t.Errorf("la exportación no conservó los datos del ítem: %+v", it)
 	}
 }
 

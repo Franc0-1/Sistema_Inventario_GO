@@ -25,6 +25,8 @@ type Repository interface {
 // (repository.ErrItemNotFound, repository.ErrConflict…). Todos se
 // identifican con errors.Is.
 type InventoryService interface {
+	Equipments(context.Context, bool) ([]models.Equipment, error)
+	SetEquipment(context.Context, int, int) (models.Item, error)
 	Summary(ctx context.Context) (models.InventorySummary, error)
 	Report(ctx context.Context, filter models.ItemFilter) (models.InventoryReport, error)
 	GetAll(ctx context.Context) ([]models.Item, error)

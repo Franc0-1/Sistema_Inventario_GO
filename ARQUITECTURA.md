@@ -152,6 +152,30 @@ Préstamos y categorías todavía no tienen endpoints.
 
 ---
 
+### Almacenamiento en SQL Server
+
+El almacenamiento se elige con `INVENTARIO_STORAGE` (`excel` por defecto, o `sqlserver`); services y
+handlers no cambian. Con `sqlserver`, `INVENTARIO_DB_DSN` es la cadena de conexión (contiene la
+contraseña: va en `.env`, que no se versiona; ver `.env.example`).
+
+| Pieza | Dónde |
+|---|---|
+| Esquema y migraciones (`NNN_descripcion.sql`, un lote por archivo, registradas en `SchemaMigrations`) | `internal/repository/migrations/sqlserver/` — se aplican solas al arrancar |
+| Lectura / escritura / importación | `sqlserver_read.go`, `sqlserver_write.go`, `sqlserver_import_export.go` |
+| Preparar y probar la base | `go run ./cmd/dbsetup` |
+| Migrar el Excel (una vez) | `go run ./cmd/migrate -probar` (valida) · `go run ./cmd/migrate` (carga y verifica) · `-script archivo.sql` (para SSMS) |
+
+Equivalencias con el Excel: cada operación es una **transacción** (reemplaza respaldo + temporal +
+reemplazo); la fila se bloquea con `UPDLOCK` y `UpdatedAt` (precisión de 100 ns) sigue siendo la
+versión (`ErrConflict`); los IDs son `IDENTITY` y la migración ajusta el contador para no reutilizar
+IDs de ítems eliminados; las reglas de datos son restricciones (`CHECK`, índices `UNIQUE` filtrados,
+clave foránea gabinete-componente). La base usa `Modern_Spanish_CI_AI`: compara sin mayúsculas ni
+tildes, igual que la app. El filtrado de búsquedas usa el mismo `itemMatcher` que Excel, así ambos
+almacenamientos devuelven exactamente lo mismo.
+
+Tests: los de SQL Server corren solo con `INVENTARIO_TEST_DSN` y se niegan a usar una base cuyo nombre
+no termine en `_Test` (borran sus datos).
+
 ## 1. Árbol del backend
 
 ```

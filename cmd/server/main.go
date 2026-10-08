@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -22,10 +23,9 @@ import (
 func main() {
 	cfg := utils.CargarConfig()
 
-	// Único lugar que elige la implementación concreta del repositorio.
-	// Otro almacenamiento en el futuro = otra implementación de
-	// repository.Repository, sin tocar services ni handlers.
-	repo, err := repository.NewExcelRepository(cfg.RutaExcel)
+	// Único lugar que elige la implementación concreta del repositorio
+	// (INVENTARIO_STORAGE): services y handlers solo conocen la interfaz.
+	repo, origen, err := abrirRepositorio(cfg)
 	if err != nil {
 		log.Fatalf("repositorio: %v", err)
 	}
@@ -52,7 +52,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("servidor escuchando en %s (excel: %s, CORS: %v)", srv.Addr, cfg.RutaExcel, cfg.CORSOrigins)
+		log.Printf("servidor escuchando en %s (almacenamiento: %s, CORS: %v)", srv.Addr, origen, cfg.CORSOrigins)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("servidor: %v", err)
 		}
@@ -68,4 +68,20 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Printf("apagado: %v", err)
 	}
+}
+
+// abrirRepositorio crea el almacenamiento configurado. origen describe dónde
+// están los datos para el log (nunca incluye la contraseña de la base).
+func abrirRepositorio(cfg utils.Config) (repository.Repository, string, error) {
+	switch cfg.Almacenamiento {
+	case "excel":
+		repo, err := repository.NewExcelRepository(cfg.RutaExcel)
+		return repo, "excel " + cfg.RutaExcel, err
+	case "sqlserver":
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		repo, err := repository.NewSQLServerRepository(ctx, cfg.DBDSN)
+		return repo, "sqlserver", err
+	}
+	return nil, "", fmt.Errorf("INVENTARIO_STORAGE=%q no es válido (use excel o sqlserver)", cfg.Almacenamiento)
 }

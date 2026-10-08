@@ -5,9 +5,12 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    # Variables (INVENTARIO_STORAGE, INVENTARIO_DB_DSN…) en un archivo .env junto
+    # a este compose, que NO se versiona: contiene la contraseña de la base.
+    env_file:
+      - path: .env
+        required: false
     volumes:
-      # En Proxmox (LXC o VM con Docker) apuntar a un disco con snapshots/backup.
+      # Solo se usa con INVENTARIO_STORAGE=excel. En Proxmox, apuntar a un disco con backup.
       - ./data:/app/data
-    stop_grace_period: 15s # permite terminar la última escritura del Excel
-    # environment:
-    #   INVENTARIO_CORS_ORIGINS: "http://otro-host:5173" # solo si el frontend se sirve desde otro origen
+    stop_grace_period: 15s # permite terminar la última escritura

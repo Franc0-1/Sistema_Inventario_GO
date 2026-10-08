@@ -874,6 +874,17 @@ func (r *ExcelRepository) readMovements(ctx context.Context, keep func(models.Mo
 // en "Inventario" (ítem, cantidades y fecha) y lo agrega. Sin lock: se llama
 // dentro de write().
 func appendStockMovement(f *excelize.File, mov models.Movement, before, after models.Item) (models.Movement, error) {
+	mov, err := stockMovementFor(mov, before, after)
+	if err != nil {
+		return models.Movement{}, err
+	}
+	return appendMovement(f, mov)
+}
+
+// stockMovementFor completa el movimiento con lo que realmente se escribe
+// (ítem, cantidades anterior y nueva, fecha) y verifica que coincida con el
+// cambio. Lo comparten los repositorios de Excel y de SQL Server.
+func stockMovementFor(mov models.Movement, before, after models.Item) (models.Movement, error) {
 	mov.ItemID = after.ID
 	mov.PreviousQuantity, mov.NewQuantity = before.Quantity, after.Quantity
 	mov.CreatedAt = after.UpdatedAt
@@ -884,7 +895,7 @@ func appendStockMovement(f *excelize.File, mov models.Movement, before, after mo
 		return models.Movement{}, fmt.Errorf("%w: %s de %d no coincide con el cambio guardado (%d -> %d)",
 			ErrInvalidMovement, mov.MovementType, mov.Quantity, mov.PreviousQuantity, mov.NewQuantity)
 	}
-	return appendMovement(f, mov)
+	return mov, nil
 }
 
 // matchesChange verifica que el movimiento describa el cambio de cantidad que

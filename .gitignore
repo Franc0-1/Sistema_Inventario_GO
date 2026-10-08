@@ -10,3 +10,7 @@ data/.*.tmp
 /bin/
 /server
 *.exe
+
+# Configuración con contraseñas y scripts generados con datos reales
+.env
+migracion_*.sql

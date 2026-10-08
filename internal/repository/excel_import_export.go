@@ -7,6 +7,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/xuri/excelize/v2"
 
@@ -68,28 +69,12 @@ func (r *ExcelRepository) ImportInventory(ctx context.Context, src io.Reader) (i
 	if err != nil {
 		return 0, err
 	}
-	items, maxImportedID := data.items, data.maxID
-	if data.isSpanish {
-		current, err := readInventoryItems(f)
-		if err != nil {
-			return 0, err
-		}
-		if items, maxImportedID, err = resolveSpanishRows(data.spanish, current, lastIssued, r.timestamp); err != nil {
-			return 0, err
-		}
+	current, err := readInventoryItems(f)
+	if err != nil {
+		return 0, err
 	}
-	schema, equipmentCol, numberCol := inventorySchema, colEquipmentID, colInventoryNumber
-	rows := make([]int, len(items))
-	for i := range rows {
-		rows[i] = i + headerRow + 1
-	}
-	if data.isSpanish {
-		schema, equipmentCol, numberCol = exportSchema, expEquipmentID, expInventoryNumber
-		for i := range rows {
-			rows[i] = data.spanish[i].row
-		}
-	}
-	if err := validateImportedEquipment(items, rows, schema, equipmentCol, numberCol); err != nil {
+	items, maxImportedID, err := prepareImport(data, current, lastIssued, r.timestamp)
+	if err != nil {
 		return 0, err
 	}
 	if err := replaceInventoryRows(f, items); err != nil {
@@ -227,21 +212,58 @@ func replaceInventoryRows(f *excelize.File, items []models.Item) error {
 		return err
 	}
 	for i, item := range items {
-		item.InventoryNumber = strings.TrimSpace(item.InventoryNumber)
-		item.DeviceType = strings.TrimSpace(item.DeviceType)
-		item.Brand = strings.TrimSpace(item.Brand)
-		item.Model = strings.TrimSpace(item.Model)
-		item.SerialNumber = strings.TrimSpace(item.SerialNumber)
-		item.Location = strings.TrimSpace(item.Location)
-		item.Status = models.ItemStatus(strings.TrimSpace(string(item.Status)))
-		item.Notes = strings.TrimSpace(item.Notes)
-		item.AssignedTo = strings.TrimSpace(item.AssignedTo)
-		if item.Availability == "" {
-			item.Availability = models.Available
-		}
-		if err := setRow(f, SheetInventory, headerRow+1+i, itemToRow(item)); err != nil {
+		if err := setRow(f, SheetInventory, headerRow+1+i, itemToRow(normalizeImported(item))); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// normalizeImported quita espacios de más y completa la disponibilidad.
+func normalizeImported(item models.Item) models.Item {
+	item.InventoryNumber = strings.TrimSpace(item.InventoryNumber)
+	item.DeviceType = strings.TrimSpace(item.DeviceType)
+	item.Brand = strings.TrimSpace(item.Brand)
+	item.Model = strings.TrimSpace(item.Model)
+	item.SerialNumber = strings.TrimSpace(item.SerialNumber)
+	item.Location = strings.TrimSpace(item.Location)
+	item.Status = models.ItemStatus(strings.TrimSpace(string(item.Status)))
+	item.Notes = strings.TrimSpace(item.Notes)
+	item.AssignedTo = strings.TrimSpace(item.AssignedTo)
+	if item.Availability == "" {
+		item.Availability = models.Available
+	}
+	return item
+}
+
+// prepareImport deja los ítems importados listos para guardar, sin importar
+// el almacenamiento: completa IDs y fechas del formato en español contra el
+// inventario actual, valida los vínculos de equipos y normaliza los textos.
+// Lo usan los repositorios de Excel y de SQL Server.
+func prepareImport(data importData, current []models.Item, lastIssued int, timestamp func(time.Time) time.Time) ([]models.Item, int, error) {
+	items, maxImportedID := data.items, data.maxID
+	if data.isSpanish {
+		var err error
+		if items, maxImportedID, err = resolveSpanishRows(data.spanish, current, lastIssued, timestamp); err != nil {
+			return nil, 0, err
+		}
+	}
+	schema, equipmentCol, numberCol := inventorySchema, colEquipmentID, colInventoryNumber
+	rows := make([]int, len(items))
+	for i := range rows {
+		rows[i] = i + headerRow + 1
+	}
+	if data.isSpanish {
+		schema, equipmentCol, numberCol = exportSchema, expEquipmentID, expInventoryNumber
+		for i := range rows {
+			rows[i] = data.spanish[i].row
+		}
+	}
+	if err := validateImportedEquipment(items, rows, schema, equipmentCol, numberCol); err != nil {
+		return nil, 0, err
+	}
+	for i := range items {
+		items[i] = normalizeImported(items[i])
+	}
+	return items, maxImportedID, nil
 }

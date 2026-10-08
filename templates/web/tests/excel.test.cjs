@@ -22,7 +22,7 @@ function entorno() {
     fetch: async () => { throw new Error("sin red"); },
   };
   vm.createContext(sandbox);
-  for (const nombre of ["api", "app"]) {
+  for (const nombre of ["api", ...require("./archivos-app.cjs")]) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, `../static/js/${nombre}.js`), "utf8"), sandbox);
   }
   vm.runInContext(`

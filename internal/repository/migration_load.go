@@ -10,7 +10,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"inventario/internal/models"
-	"inventario/internal/utils"
+	"inventario/internal/textnorm"
 )
 
 // Migración única de los datos del Excel a SQL Server (cmd/migrate).
@@ -87,14 +87,14 @@ func CheckMigrationData(data MigrationData) []string {
 				add(it.ID, "%s tiene %d caracteres (máximo %d)", l.field, n, l.limit)
 			}
 		}
-		if key := utils.FoldText(it.InventoryNumber); key != "" {
+		if key := textnorm.Fold(it.InventoryNumber); key != "" {
 			if first, dup := numbers[key]; !dup {
 				numbers[key] = it
 			} else if !models.ShareEquipment(it, first) {
 				add(it.ID, "N° de inventario %q repetido con el ítem %d, que no es del mismo equipo", it.InventoryNumber, first.ID)
 			}
 		}
-		if key := utils.FoldText(it.SerialNumber); key != "" {
+		if key := textnorm.Fold(it.SerialNumber); key != "" {
 			if other, dup := serials[key]; dup {
 				add(it.ID, "N° de serie %q repetido con el ítem %d (sin distinguir mayúsculas ni tildes)", it.SerialNumber, other)
 			}

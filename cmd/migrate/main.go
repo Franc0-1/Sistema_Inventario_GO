@@ -18,13 +18,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"inventario/internal/config"
 	"inventario/internal/models"
 	"inventario/internal/repository"
-	"inventario/internal/utils"
 )
 
 func main() {
-	cfg := utils.CargarConfig()
+	cfg := config.Cargar()
 	excel := flag.String("excel", cfg.RutaExcel, "Excel de origen")
 	probar := flag.Bool("probar", false, "solo validar los datos, sin escribir en la base")
 	script := flag.String("script", "", "en vez de escribir en la base, generar este archivo .sql para ejecutarlo en SSMS")

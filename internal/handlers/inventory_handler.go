@@ -18,13 +18,19 @@ import (
 	"inventario/internal/services"
 )
 
-// InventoryHandler expone InventoryService como API REST.
+// InventoryHandler expone InventoryService como API REST. Guarda cada área del
+// servicio por separado: cada endpoint solo puede usar la parte que le corresponde.
 type InventoryHandler struct {
-	service services.InventoryService
+	items     services.ItemService
+	stock     services.StockService
+	equipment services.EquipmentService
+	reports   services.ReportService
+	sheets    services.SpreadsheetService
+	checker   services.HealthService
 }
 
 func NewInventoryHandler(service services.InventoryService) *InventoryHandler {
-	return &InventoryHandler{service: service}
+	return &InventoryHandler{items: service, stock: service, equipment: service, reports: service, sheets: service, checker: service}
 }
 
 // RegisterRoutes registra las rutas de la API. Cada ruta despacha por método
@@ -73,7 +79,7 @@ func (h *InventoryHandler) RegisterRoutes(mux *http.ServeMux) {
 
 // GET /api/inventory/export
 func (h *InventoryHandler) exportInventory(w http.ResponseWriter, r *http.Request) {
-	data, err := h.service.ExportInventory(r.Context())
+	data, err := h.sheets.ExportInventory(r.Context())
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -105,7 +111,7 @@ func (h *InventoryHandler) importInventory(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusBadRequest, CodeInvalidRequest, "el archivo debe tener extensión .xlsx")
 		return
 	}
-	imported, err := h.service.ImportInventory(r.Context(), file)
+	imported, err := h.sheets.ImportInventory(r.Context(), file)
 	if err != nil {
 		writeImportError(w, err)
 		return
@@ -136,7 +142,7 @@ func (h *InventoryHandler) list(w http.ResponseWriter, r *http.Request) {
 		writeRequestError(w, reqErr)
 		return
 	}
-	page, err := h.service.Query(r.Context(), q)
+	page, err := h.items.Query(r.Context(), q)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -152,7 +158,7 @@ func (h *InventoryHandler) get(w http.ResponseWriter, r *http.Request) {
 		writeRequestError(w, reqErr)
 		return
 	}
-	item, err := h.service.GetByID(r.Context(), id)
+	item, err := h.items.GetByID(r.Context(), id)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -167,7 +173,7 @@ func (h *InventoryHandler) create(w http.ResponseWriter, r *http.Request) {
 		writeRequestError(w, reqErr)
 		return
 	}
-	item, err := h.service.Create(r.Context(), req.toItem())
+	item, err := h.items.Create(r.Context(), req.toItem())
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -193,7 +199,7 @@ func (h *InventoryHandler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	item := req.toItem()
 	item.ID = id
-	updated, err := h.service.Update(r.Context(), id, item)
+	updated, err := h.items.Update(r.Context(), id, item)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -208,7 +214,7 @@ func (h *InventoryHandler) delete(w http.ResponseWriter, r *http.Request) {
 		writeRequestError(w, reqErr)
 		return
 	}
-	if err := h.service.Delete(r.Context(), id); err != nil {
+	if err := h.items.Delete(r.Context(), id); err != nil {
 		writeServiceError(w, r, err)
 		return
 	}
@@ -237,9 +243,9 @@ func (h *InventoryHandler) updateStock(w http.ResponseWriter, r *http.Request) {
 		err  error
 	)
 	if req.Type == "" && req.DestinationLocation == "" && req.Notes == "" {
-		item, err = h.service.UpdateStock(r.Context(), id, op.Quantity) // cuerpo original {"cantidad": n}
+		item, err = h.stock.UpdateStock(r.Context(), id, op.Quantity) // cuerpo original {"cantidad": n}
 	} else {
-		item, err = h.service.ApplyMovement(r.Context(), id, op)
+		item, err = h.stock.ApplyMovement(r.Context(), id, op)
 	}
 	if err != nil {
 		writeServiceError(w, r, err)
@@ -250,7 +256,7 @@ func (h *InventoryHandler) updateStock(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/movements
 func (h *InventoryHandler) movements(w http.ResponseWriter, r *http.Request) {
-	movs, err := h.service.GetMovements(r.Context())
+	movs, err := h.stock.GetMovements(r.Context())
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -265,7 +271,7 @@ func (h *InventoryHandler) itemMovements(w http.ResponseWriter, r *http.Request)
 		writeRequestError(w, reqErr)
 		return
 	}
-	movs, err := h.service.GetMovementsByItemID(r.Context(), id)
+	movs, err := h.stock.GetMovementsByItemID(r.Context(), id)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -277,7 +283,7 @@ func (h *InventoryHandler) itemMovements(w http.ResponseWriter, r *http.Request)
 // estructura es válida; si no, 503 con el formato de error de la API. El
 // detalle (rutas, motivo) queda solo en el log.
 func (h *InventoryHandler) health(w http.ResponseWriter, r *http.Request) {
-	if err := h.service.CheckHealth(r.Context()); err != nil {
+	if err := h.checker.CheckHealth(r.Context()); err != nil {
 		log.Printf("health: inventario no disponible: %v", err)
 		writeError(w, http.StatusServiceUnavailable, CodeServiceUnavailable, "el inventario no está disponible")
 		return

@@ -8,7 +8,7 @@ function entorno() {
   const sandbox = { console, FormData, URLSearchParams, clearTimeout, setTimeout, queueMicrotask,
     document: { addEventListener() {} }, history: { replaceState() {} }, location: { pathname: '/' } };
   vm.createContext(sandbox);
-  for (const nombre of ['api', 'app', 'analytics']) vm.runInContext(fs.readFileSync(path.join(__dirname, `../static/js/${nombre}.js`), 'utf8'), sandbox);
+  for (const nombre of ['api', ...require('./archivos-app.cjs'), 'analytics']) vm.runInContext(fs.readFileSync(path.join(__dirname, `../static/js/${nombre}.js`), 'utf8'), sandbox);
   vm.runInContext(`
     renderAnalitica = () => {};
     renderSeccion = () => {};

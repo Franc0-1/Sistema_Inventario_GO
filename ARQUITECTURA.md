@@ -25,7 +25,7 @@ Los usuarios **nunca** tocan el Excel: todo pasa por web → handlers → servic
   Disponible/prestado cuenta registros activos con `HasInventory=true` según
   `Availability`, independientemente de la condición operativa.
 - Las distribuciones del resumen incluyen bajas. Cada grupo contiene
-  `{valor, registros, unidades}`. Las etiquetas equivalentes según `FoldText`
+  `{valor, registros, unidades}`. Las etiquetas equivalentes según `textnorm.Fold`
   se agrupan; se elige la etiqueta lexicográficamente menor y se ordena por
   etiqueta normalizada. Los valores vacíos se muestran como «Sin especificar».
 - `movimientos` contiene los últimos 10, por `CreatedAt` descendente y luego
@@ -94,7 +94,7 @@ repo      Search: una lectura del Excel bajo RLock, filtra fila por fila (itemMa
 archivo por partes: se lee una vez, se filtra, se ordena y se recorta.
 
 **Filtros** (se combinan con Y; vacío = no filtra). Todos ignoran mayúsculas, tildes y espacios de más
-(`utils.FoldText`):
+(`textnorm.Fold`):
 
 | Parámetro | Campo | Comparación |
 |---|---|---|
@@ -130,7 +130,7 @@ responde 200 con `items: []`.
 booleano inválido → 400 `INVALID_QUERY` (así un error de tipeo no devuelve resultados sin filtrar).
 
 **Frontend:** no filtra, no ordena ni pagina localmente. `api.js` arma la query string (omite los
-vacíos) y `app.js` traduce el estado de la pantalla a parámetros (`parametrosConsulta`):
+vacíos) y `app/carga.js` y `app/base.js` traducen el estado de la pantalla a parámetros (`parametrosConsulta`):
 - Barra de filtros (tipo, marca, área, condición) y panel "Más filtros" (modelo, N° de inventario,
   N° de serie, con/sin N°). Los textos se envían con espera de 300 ms; los selectores, al instante.
   Todo cambio vuelve a la página 1.
@@ -213,10 +213,9 @@ inventario/
 │   │   ├── movement.go                # Movement, MovementType
 │   │   ├── query.go                   # ItemQuery, SortFields, Pagination, ItemPage (Etapa 9)
 │   │   └── category.go                # Category
-│   └── utils/
-│       ├── excel.go                   # Conversiones seguras de celdas (int, bool, fecha)
-│       ├── text.go                    # FoldText: comparar sin mayúsculas, tildes ni espacios de más
-│       └── config.go                  # Variables de entorno (puerto, Excel, CORS)
+│   ├── config/config.go             # Variables de entorno (puerto, almacenamiento, Excel, base, CORS)
+│   ├── excelcell/excelcell.go       # Conversiones seguras de celdas (int, bool, fecha)
+│   └── textnorm/textnorm.go         # Fold: comparar sin mayúsculas, tildes ni espacios de más
 ├── templates/web/                     # Frontend ya construido
 ├── data/inventario.xlsx               # Se crea si no existe; no se versiona
 ├── Dockerfile · docker-compose.yml · go.mod
@@ -289,6 +288,10 @@ El servicio los devuelve sin reemplazarlos. Los handlers los identifican con
 `errors.Is(err, repository.ErrItemNotFound)`: usan solo los valores de error del paquete, nunca su implementación.
 
 ### Capa de servicio (`services.InventoryService`)
+
+`InventoryService` es la composición de interfaces chicas por área (`services/interface.go`):
+`ItemService`, `StockService`, `EquipmentService`, `ReportService`, `SpreadsheetService` y `HealthService`.
+`InventoryHandler` guarda cada una en su propio campo, así cada endpoint solo usa la parte que le corresponde.
 
 ```go
 type InventoryService interface {
@@ -406,7 +409,7 @@ El servicio valida cada movimiento antes de guardarlo: tipo conocido, cantidades
 tipo (`ErrInvalidMovement`, `ErrInvalidQuantity`).
 | `Categorias` | A ID · B Name · C Active · D Loanable (hoja auxiliar para filtros y la regla de préstamo) |
 
-**Lectura** (`utils/excel.go`: nunca hace panic; celda vacía = valor cero):
+**Lectura** (`excelcell`: nunca hace panic; celda vacía = valor cero):
 
 | Tipo | Acepta |
 |---|---|
@@ -505,7 +508,7 @@ HTML, CSS y JavaScript sin frameworks, servidos por el mismo servidor Go (mismo 
 | Archivo | Responsabilidad |
 |---|---|
 | `static/js/api.js` | **Única** capa HTTP: URL base relativa `/api/inventory`, `fetch`, lectura de `{data}` / `{error}`, `ApiError` con el `code` del backend. Solo envía los campos editables |
-| `static/js/app.js` | Estado (`estado.items` es la única fuente de verdad), renderizado, filtros locales, formularios y acciones |
+| `static/js/app/*.js` | La interfaz principal, dividida por responsabilidad y cargada en este orden (scripts clásicos que comparten el ámbito global): `base` (configuración, estado, utilidades, parámetros de consulta) · `componentes` · `secciones` (inventario general, aires, render) · `carga` (pedidos al backend, errores y avisos) · `menu` · `formulario` · `operaciones` (stock y eliminar) · `historial` · `inicio` (tema y eventos). El orden está en `tests/archivos-app.cjs` y en `index.html` |
 | `static/js/iconos.js` | Íconos SVG constantes |
 | `index.html` | Estructura, diálogos de alta/edición, stock y confirmación de borrado |
 
@@ -522,7 +525,7 @@ HTML, CSS y JavaScript sin frameworks, servidos por el mismo servidor Go (mismo 
 - **Historial:** la opción «Historial» del menú ⋮ abre un diálogo de solo lectura con los movimientos del
   ítem, del más reciente al más antiguo (`api.getItemMovements`).
 - **Préstamos:** los botones Prestar y Devolver se ven inactivos y avisan que no están disponibles
-  (la API todavía no tiene esos endpoints). `TIPOS_PRESTABLES` en `app.js` reemplaza provisoriamente a
+  (la API todavía no tiene esos endpoints). `TIPOS_PRESTABLES` en `app/base.js` reemplaza provisoriamente a
   las categorías.
 
 ## 6. Responsabilidad de cada paquete
@@ -530,11 +533,11 @@ HTML, CSS y JavaScript sin frameworks, servidos por el mismo servidor Go (mismo 
 | Paquete | Hace | Puede importar | Nunca |
 |---|---|---|---|
 | `cmd/server` | Config; repositorio → servicio → router; timeouts; apagado | todo `internal/*` | Lógica |
-| `handlers` | Rutas; formato de entrada; JSON; mapeo de errores | `services`, `models`, `utils`; de `repository`, solo sus errores | Usar el repositorio; reglas de negocio |
+| `handlers` | Rutas; formato de entrada; JSON; mapeo de errores | `services`, `models`; de `repository`, solo sus errores | Usar el repositorio; reglas de negocio |
 | `services` | Reglas de negocio, validaciones, movimientos, fechas de auditoría | `models`, `repository` (interfaces) | HTTP, JSON, excelize |
-| `repository` | Excel: esquema, lectura, escritura atómica, versión | `models`, `utils`, `excelize` | Reglas de negocio |
+| `repository` | Excel: esquema, lectura, escritura atómica, versión | `models`, `excelcell`, `textnorm`, `excelize` | Reglas de negocio |
 | `models` | Entidades y enumeraciones | stdlib | Paquetes internos |
-| `utils` | Config y conversión de celdas | stdlib, `excelize` | `services`/`repository` |
+| `config` · `excelcell` · `textnorm` | Variables de entorno · conversión de celdas · comparar textos sin mayúsculas ni tildes | stdlib, `excelize` | `services`/`repository` |
 
 ## 7. Convenciones
 

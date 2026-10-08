@@ -1,4 +1,4 @@
-package utils
+package excelcell
 
 import (
 	"fmt"
@@ -14,9 +14,9 @@ import (
 // (excelize.Options{RawCellValue: true}), nunca hacen panic y tratan la celda
 // vacía como el valor cero del tipo.
 
-// ParseCellInt acepta enteros ("12") y números con parte decimal nula ("12.0"),
+// ParseInt acepta enteros ("12") y números con parte decimal nula ("12.0"),
 // que es como Excel puede guardar una cantidad.
-func ParseCellInt(valor string) (int, error) {
+func ParseInt(valor string) (int, error) {
 	valor = strings.TrimSpace(valor)
 	if valor == "" {
 		return 0, nil
@@ -36,9 +36,9 @@ var (
 	valoresFalsos     = map[string]bool{"no": true, "n": true, "false": true, "falso": true, "0": true}
 )
 
-// ParseCellBool acepta SI/NO (con o sin tilde), TRUE/FALSE, VERDADERO/FALSO,
+// ParseBool acepta SI/NO (con o sin tilde), TRUE/FALSE, VERDADERO/FALSO,
 // 1/0 (celdas booleanas de Excel) y X, sin distinguir mayúsculas.
-func ParseCellBool(valor string) (bool, error) {
+func ParseBool(valor string) (bool, error) {
 	v := strings.ToLower(strings.TrimSpace(valor))
 	switch {
 	case v == "":
@@ -62,9 +62,9 @@ var formatosFecha = []string{
 	"02/01/2006",
 }
 
-// ParseCellTime acepta los formatos de texto de formatosFecha y fechas
+// ParseTime acepta los formatos de texto de formatosFecha y fechas
 // numéricas de Excel (número de serie, p. ej. "46275.5").
-func ParseCellTime(valor string) (time.Time, error) {
+func ParseTime(valor string) (time.Time, error) {
 	valor = strings.TrimSpace(valor)
 	if valor == "" {
 		return time.Time{}, nil
@@ -91,17 +91,17 @@ func fechaDeSerieExcel(serie float64) (time.Time, error) {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), 0, time.Local), nil
 }
 
-// FormatCellTime es el formato con el que el sistema escribe fechas: RFC 3339
+// FormatTime es el formato con el que el sistema escribe fechas: RFC 3339
 // con nanosegundos, para que UpdatedAt distinga dos escrituras en el mismo segundo.
-func FormatCellTime(t time.Time) string {
+func FormatTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
 	return t.Format(time.RFC3339Nano)
 }
 
-// FormatCellBool escribe booleanos como SI/NO, legibles para quien abra el archivo.
-func FormatCellBool(b bool) string {
+// FormatBool escribe booleanos como SI/NO, legibles para quien abra el archivo.
+func FormatBool(b bool) string {
 	if b {
 		return "SI"
 	}

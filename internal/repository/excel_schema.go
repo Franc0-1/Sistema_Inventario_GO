@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"inventario/internal/excelcell"
 	"inventario/internal/models"
-	"inventario/internal/utils"
 )
 
 // Esquema del libro inventario.xlsx: ÚNICA fuente de verdad sobre nombres de
@@ -199,7 +199,7 @@ func (r *rowReader) fail(col int, err error) {
 }
 
 func (r *rowReader) readInt(col int) int {
-	n, err := utils.ParseCellInt(r.readText(col))
+	n, err := excelcell.ParseInt(r.readText(col))
 	if err != nil {
 		r.fail(col, err)
 	}
@@ -216,7 +216,7 @@ func (r *rowReader) readID() int {
 }
 
 func (r *rowReader) readBool(col int) bool {
-	b, err := utils.ParseCellBool(r.readText(col))
+	b, err := excelcell.ParseBool(r.readText(col))
 	if err != nil {
 		r.fail(col, err)
 	}
@@ -224,7 +224,7 @@ func (r *rowReader) readBool(col int) bool {
 }
 
 func (r *rowReader) readTime(col int) time.Time {
-	t, err := utils.ParseCellTime(r.readText(col))
+	t, err := excelcell.ParseTime(r.readText(col))
 	if err != nil {
 		r.fail(col, err)
 	}
@@ -284,7 +284,7 @@ func itemToRow(item models.Item) []any {
 	row := make([]any, inventoryColumns)
 	row[colID] = item.ID
 	row[colInventoryNumber] = item.InventoryNumber
-	row[colHasInventory] = utils.FormatCellBool(item.HasInventory)
+	row[colHasInventory] = excelcell.FormatBool(item.HasInventory)
 	row[colDeviceType] = item.DeviceType
 	row[colBrand] = item.Brand
 	row[colModel] = item.Model
@@ -293,14 +293,14 @@ func itemToRow(item models.Item) []any {
 	row[colLocation] = item.Location
 	row[colStatus] = string(item.Status)
 	row[colNotes] = item.Notes
-	row[colCreatedAt] = utils.FormatCellTime(item.CreatedAt)
-	row[colUpdatedAt] = utils.FormatCellTime(item.UpdatedAt)
+	row[colCreatedAt] = excelcell.FormatTime(item.CreatedAt)
+	row[colUpdatedAt] = excelcell.FormatTime(item.UpdatedAt)
 	row[colAvailability] = string(item.Availability)
 	row[colAssignedTo] = item.AssignedTo
 	row[colLoanedAt] = ""
 	row[colEquipmentID] = item.EquipmentID
 	if item.LoanedAt != nil {
-		row[colLoanedAt] = utils.FormatCellTime(*item.LoanedAt)
+		row[colLoanedAt] = excelcell.FormatTime(*item.LoanedAt)
 	}
 	return row
 }
@@ -336,7 +336,7 @@ func movementToRow(mov models.Movement) []any {
 	row[colMovOrigin] = mov.OriginLocation
 	row[colMovDestination] = mov.DestinationLocation
 	row[colMovNotes] = mov.Notes
-	row[colMovCreatedAt] = utils.FormatCellTime(mov.CreatedAt)
+	row[colMovCreatedAt] = excelcell.FormatTime(mov.CreatedAt)
 	return row
 }
 
@@ -356,7 +356,7 @@ func categoryToRow(cat models.Category) []any {
 	row := make([]any, categoryColumns)
 	row[colCatID] = cat.ID
 	row[colCatName] = cat.Name
-	row[colCatActive] = utils.FormatCellBool(cat.Active)
-	row[colCatLoanable] = utils.FormatCellBool(cat.Loanable)
+	row[colCatActive] = excelcell.FormatBool(cat.Active)
+	row[colCatLoanable] = excelcell.FormatBool(cat.Loanable)
 	return row
 }

@@ -18,17 +18,25 @@ type Repository interface {
 	repository.HealthChecker
 }
 
-// InventoryService son las operaciones que usarán los handlers.
+// InventoryService son todas las operaciones que usan los handlers. Es la
+// composición de interfaces chicas, una por área: cada handler depende solo de
+// la que necesita, y una implementación nueva puede crecer por partes.
 //
 // Errores: los de negocio de este paquete (ErrInvalidItem, ErrInvalidID,
 // ErrInventoryNumberExists…) y los del repositorio sin reemplazar
 // (repository.ErrItemNotFound, repository.ErrConflict…). Todos se
 // identifican con errors.Is.
 type InventoryService interface {
-	Equipments(context.Context, bool) ([]models.Equipment, error)
-	SetEquipment(context.Context, int, int) (models.Item, error)
-	Summary(ctx context.Context) (models.InventorySummary, error)
-	Report(ctx context.Context, filter models.ItemFilter) (models.InventoryReport, error)
+	ItemService
+	StockService
+	EquipmentService
+	ReportService
+	SpreadsheetService
+	HealthService
+}
+
+// ItemService consulta y administra los ítems.
+type ItemService interface {
 	GetAll(ctx context.Context) ([]models.Item, error)
 	GetByID(ctx context.Context, id int) (models.Item, error)
 	Search(ctx context.Context, filter models.ItemFilter) ([]models.Item, error)
@@ -49,7 +57,10 @@ type InventoryService interface {
 
 	// Delete elimina el ítem definitivamente. Su historial se conserva.
 	Delete(ctx context.Context, id int) error
+}
 
+// StockService cambia el stock y consulta el historial de movimientos.
+type StockService interface {
 	// UpdateStock fija la cantidad del ítem (no modifica ningún otro campo) y
 	// registra en la misma escritura el movimiento stock_in, stock_out o
 	// stock_update según la cantidad suba, baje o no cambie.
@@ -68,14 +79,35 @@ type InventoryService interface {
 	// GetMovementsByItemID devuelve el historial de un ítem, aunque el ítem ya
 	// se haya eliminado. ErrItemNotFound solo si el ítem no existe y no tiene historial.
 	GetMovementsByItemID(ctx context.Context, itemID int) ([]models.Movement, error)
+}
 
-	// CheckHealth informa si el almacenamiento es accesible y su estructura es
-	// válida. No escribe.
-	CheckHealth(ctx context.Context) error
+// EquipmentService administra las PC (gabinete y componentes vinculados).
+type EquipmentService interface {
+	// Equipments devuelve cada gabinete con sus componentes; el bool incluye las bajas.
+	Equipments(ctx context.Context, includeRetired bool) ([]models.Equipment, error)
 
+	// SetEquipment vincula el ítem id al gabinete equipmentID (0 = desvincular).
+	SetEquipment(ctx context.Context, id, equipmentID int) (models.Item, error)
+}
+
+// ReportService calcula el resumen y los reportes del inventario.
+type ReportService interface {
+	Summary(ctx context.Context) (models.InventorySummary, error)
+	Report(ctx context.Context, filter models.ItemFilter) (models.InventoryReport, error)
+}
+
+// SpreadsheetService descarga e importa el inventario como Excel.
+type SpreadsheetService interface {
 	// ExportInventory genera un Excel descargable con el inventario actual.
 	ExportInventory(ctx context.Context) ([]byte, error)
 
 	// ImportInventory reemplaza el inventario completo desde un .xlsx validado.
 	ImportInventory(ctx context.Context, src io.Reader) (int, error)
+}
+
+// HealthService informa si el almacenamiento está disponible.
+type HealthService interface {
+	// CheckHealth informa si el almacenamiento es accesible y su estructura es
+	// válida. No escribe.
+	CheckHealth(ctx context.Context) error
 }

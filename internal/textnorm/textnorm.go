@@ -1,4 +1,4 @@
-package utils
+package textnorm
 
 import "strings"
 
@@ -8,8 +8,8 @@ var foldAccents = strings.NewReplacer(
 	"à", "a", "è", "e", "ì", "i", "ò", "o", "ù", "u",
 )
 
-// FoldText normaliza un texto para comparar o buscar: minúsculas, sin tildes
+// Fold normaliza un texto para comparar o buscar: minúsculas, sin tildes
 // y con los espacios colapsados. "  Recepción  B " -> "recepcion b".
-func FoldText(s string) string {
+func Fold(s string) string {
 	return foldAccents.Replace(strings.Join(strings.Fields(strings.ToLower(s)), " "))
 }

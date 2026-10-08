@@ -7,7 +7,7 @@ func (h *InventoryHandler) summary(w http.ResponseWriter, r *http.Request) {
 		writeRequestError(w, badRequest(CodeInvalidQuery, "el resumen no acepta parámetros"))
 		return
 	}
-	data, err := h.service.Summary(r.Context())
+	data, err := h.reports.Summary(r.Context())
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -28,7 +28,7 @@ func (h *InventoryHandler) report(w http.ResponseWriter, r *http.Request) {
 		writeRequestError(w, problem)
 		return
 	}
-	data, err := h.service.Report(r.Context(), query.Filter)
+	data, err := h.reports.Report(r.Context(), query.Filter)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return

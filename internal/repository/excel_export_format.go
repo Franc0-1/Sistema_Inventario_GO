@@ -8,7 +8,7 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"inventario/internal/models"
-	"inventario/internal/utils"
+	"inventario/internal/textnorm"
 )
 
 // Formato del Excel que se descarga desde la interfaz: en español y solo con
@@ -242,9 +242,9 @@ func parseLabel[K ~string](text string, labels map[K]string, empty K) (K, bool) 
 	if text == "" {
 		return empty, true
 	}
-	folded := utils.FoldText(text)
+	folded := textnorm.Fold(text)
 	for value, label := range labels {
-		if folded == utils.FoldText(label) || folded == utils.FoldText(string(value)) {
+		if folded == textnorm.Fold(label) || folded == textnorm.Fold(string(value)) {
 			return value, true
 		}
 	}

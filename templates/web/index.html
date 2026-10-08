@@ -307,7 +307,16 @@
 
   <script src="/static/js/iconos.js"></script>
   <script src="/static/js/api.js"></script>
-  <script src="/static/js/app.js"></script>
+  <!-- app.js dividido por responsabilidad; el orden importa (mismo que tests/archivos-app.cjs) -->
+  <script src="/static/js/app/base.js"></script>
+  <script src="/static/js/app/componentes.js"></script>
+  <script src="/static/js/app/secciones.js"></script>
+  <script src="/static/js/app/carga.js"></script>
+  <script src="/static/js/app/menu.js"></script>
+  <script src="/static/js/app/formulario.js"></script>
+  <script src="/static/js/app/operaciones.js"></script>
+  <script src="/static/js/app/historial.js"></script>
+  <script src="/static/js/app/inicio.js"></script>
   <script src="/static/js/analytics.js"></script>
   <script src="/static/js/workspace.js"></script>
   <script src="/static/js/equipment-detail.js"></script>

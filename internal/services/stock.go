@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"inventario/internal/models"
-	"inventario/internal/utils"
+	"inventario/internal/textnorm"
 )
 
 // ApplyMovement registra un movimiento de inventario y aplica su efecto sobre
@@ -104,7 +104,7 @@ func operationMovement(current models.Item, op models.StockOperation) (models.Mo
 	case models.MovementStockUpdate:
 		mov = stockMovement(current.ID, current.Quantity, op.Quantity)
 	case models.MovementTransfer:
-		if utils.FoldText(op.DestinationLocation) == utils.FoldText(current.Location) {
+		if textnorm.Fold(op.DestinationLocation) == textnorm.Fold(current.Location) {
 			return mov, fmt.Errorf("%w: el ítem ya está en %q", ErrInvalidMovement, current.Location)
 		}
 		mov = models.Movement{ItemID: current.ID, MovementType: models.MovementTransfer,

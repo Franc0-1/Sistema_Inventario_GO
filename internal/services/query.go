@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"inventario/internal/models"
-	"inventario/internal/utils"
+	"inventario/internal/textnorm"
 )
 
 // Query filtra en el repositorio y ordena y pagina en memoria: el Excel se
@@ -111,7 +111,7 @@ func sortItems(items []models.Item, field models.SortField, order models.SortOrd
 func itemComparator(field models.SortField) func(a, b models.Item, sign int) int {
 	byText := func(get func(models.Item) string) func(a, b models.Item, sign int) int {
 		return func(a, b models.Item, sign int) int {
-			x, y := utils.FoldText(get(a)), utils.FoldText(get(b))
+			x, y := textnorm.Fold(get(a)), textnorm.Fold(get(b))
 			switch {
 			case x == y:
 				return 0

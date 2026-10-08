@@ -4,10 +4,10 @@ import (
 	"strings"
 
 	"inventario/internal/models"
-	"inventario/internal/utils"
+	"inventario/internal/textnorm"
 )
 
-// itemMatcher es un ItemFilter con los textos ya normalizados (utils.FoldText),
+// itemMatcher es un ItemFilter con los textos ya normalizados (textnorm.Fold),
 // para no repetir ese trabajo en cada fila.
 type itemMatcher struct {
 	filter            models.ItemFilter
@@ -24,14 +24,14 @@ type itemMatcher struct {
 func newItemMatcher(f models.ItemFilter) itemMatcher {
 	return itemMatcher{
 		filter:            f,
-		text:              utils.FoldText(f.Text),
-		deviceType:        utils.FoldText(f.DeviceType),
-		excludeDeviceType: utils.FoldText(f.ExcludeDeviceType),
-		location:          utils.FoldText(f.Location),
-		brand:             utils.FoldText(f.Brand),
-		model:             utils.FoldText(f.Model),
-		inventoryNumber:   utils.FoldText(f.InventoryNumber),
-		serialNumber:      utils.FoldText(f.SerialNumber),
+		text:              textnorm.Fold(f.Text),
+		deviceType:        textnorm.Fold(f.DeviceType),
+		excludeDeviceType: textnorm.Fold(f.ExcludeDeviceType),
+		location:          textnorm.Fold(f.Location),
+		brand:             textnorm.Fold(f.Brand),
+		model:             textnorm.Fold(f.Model),
+		inventoryNumber:   textnorm.Fold(f.InventoryNumber),
+		serialNumber:      textnorm.Fold(f.SerialNumber),
 	}
 }
 
@@ -50,7 +50,7 @@ func (m itemMatcher) matches(item models.Item) bool {
 	case f.OnlyConsumables && item.HasInventory:
 		return false
 	case !equalsFolded(m.deviceType, item.DeviceType),
-		m.excludeDeviceType != "" && utils.FoldText(item.DeviceType) == m.excludeDeviceType,
+		m.excludeDeviceType != "" && textnorm.Fold(item.DeviceType) == m.excludeDeviceType,
 		!equalsFolded(m.location, item.Location),
 		!containsFolded(m.brand, item.Brand),
 		!containsFolded(m.model, item.Model),
@@ -63,11 +63,11 @@ func (m itemMatcher) matches(item models.Item) bool {
 
 // equalsFolded: un criterio vacío no filtra.
 func equalsFolded(want, field string) bool {
-	return want == "" || utils.FoldText(field) == want
+	return want == "" || textnorm.Fold(field) == want
 }
 
 func containsFolded(want, field string) bool {
-	return want == "" || strings.Contains(utils.FoldText(field), want)
+	return want == "" || strings.Contains(textnorm.Fold(field), want)
 }
 
 // containsText busca text (normalizado) en los campos de búsqueda libre.
@@ -75,7 +75,7 @@ func containsText(item models.Item, text string) bool {
 	for _, field := range []string{
 		item.InventoryNumber, item.Brand, item.Model, item.DeviceType, item.SerialNumber,
 	} {
-		if strings.Contains(utils.FoldText(field), text) {
+		if strings.Contains(textnorm.Fold(field), text) {
 			return true
 		}
 	}

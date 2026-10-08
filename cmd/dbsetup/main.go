@@ -11,12 +11,12 @@ import (
 	"log"
 	"time"
 
+	"inventario/internal/config"
 	"inventario/internal/repository"
-	"inventario/internal/utils"
 )
 
 func main() {
-	cfg := utils.CargarConfig()
+	cfg := config.Cargar()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 

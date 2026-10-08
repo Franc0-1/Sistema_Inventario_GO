@@ -10,7 +10,7 @@ func (h *InventoryHandler) equipments(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	result, err := h.service.Equipments(r.Context(), q.Get("includeRetired") == "true")
+	result, err := h.equipment.Equipments(r.Context(), q.Get("includeRetired") == "true")
 	if err != nil {
 		writeServiceError(w, r, err)
 		return
@@ -35,7 +35,7 @@ func (h *InventoryHandler) setEquipment(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, CodeInvalidRequest, "falta equipo_id; use 0 para desvincular")
 		return
 	}
-	item, err := h.service.SetEquipment(r.Context(), id, *req.EquipmentID)
+	item, err := h.equipment.SetEquipment(r.Context(), id, *req.EquipmentID)
 	if err != nil {
 		writeServiceError(w, r, err)
 		return

@@ -14,14 +14,14 @@ import (
 	"syscall"
 	"time"
 
+	"inventario/internal/config"
 	"inventario/internal/handlers"
 	"inventario/internal/repository"
 	"inventario/internal/services"
-	"inventario/internal/utils"
 )
 
 func main() {
-	cfg := utils.CargarConfig()
+	cfg := config.Cargar()
 
 	// Único lugar que elige la implementación concreta del repositorio
 	// (INVENTARIO_STORAGE): services y handlers solo conocen la interfaz.
@@ -72,7 +72,7 @@ func main() {
 
 // abrirRepositorio crea el almacenamiento configurado. origen describe dónde
 // están los datos para el log (nunca incluye la contraseña de la base).
-func abrirRepositorio(cfg utils.Config) (repository.Repository, string, error) {
+func abrirRepositorio(cfg config.Config) (repository.Repository, string, error) {
 	switch cfg.Almacenamiento {
 	case "excel":
 		repo, err := repository.NewExcelRepository(cfg.RutaExcel)

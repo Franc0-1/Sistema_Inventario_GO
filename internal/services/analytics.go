@@ -6,7 +6,7 @@ import (
 	"slices"
 
 	"inventario/internal/models"
-	"inventario/internal/utils"
+	"inventario/internal/textnorm"
 )
 
 // Summary uses one inventory read and one history read under the service's
@@ -77,7 +77,7 @@ func groupInventory(items []models.Item, value func(models.Item) string) []model
 	groups := make(map[string]models.InventoryGroup)
 	for _, item := range items {
 		label := value(item)
-		key := utils.FoldText(label)
+		key := textnorm.Fold(label)
 		group := groups[key]
 		if group.Records == 0 || label < group.Value {
 			group.Value = label
@@ -91,7 +91,7 @@ func groupInventory(items []models.Item, value func(models.Item) string) []model
 		result = append(result, group)
 	}
 	slices.SortFunc(result, func(a, b models.InventoryGroup) int {
-		return cmp.Compare(utils.FoldText(a.Value), utils.FoldText(b.Value))
+		return cmp.Compare(textnorm.Fold(a.Value), textnorm.Fold(b.Value))
 	})
 	return result
 }

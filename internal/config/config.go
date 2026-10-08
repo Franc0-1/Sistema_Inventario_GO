@@ -1,6 +1,6 @@
 // Package utils reúne utilidades transversales sin lógica de negocio:
 // configuración y conversión de celdas.
-package utils
+package config
 
 import (
 	"os"
@@ -27,7 +27,7 @@ type Config struct {
 	CORSOrigins []string
 }
 
-func CargarConfig() Config {
+func Cargar() Config {
 	return Config{
 		Puerto:         entorno("INVENTARIO_PUERTO", "8080"),
 		RutaExcel:      entorno("INVENTARIO_EXCEL", "data/inventario.xlsx"),

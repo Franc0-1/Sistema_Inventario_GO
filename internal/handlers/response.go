@@ -37,6 +37,13 @@ const (
 	CodeNotFound                = "NOT_FOUND"
 	CodeInternal                = "INTERNAL_ERROR"
 	CodeServiceUnavailable      = "SERVICE_UNAVAILABLE"
+
+	// Modelo nuevo (catálogos, equipos…).
+	CodeInvalidData   = "INVALID_DATA"
+	CodeInvalidUser   = "INVALID_USER"
+	CodeAlreadyExists = "ALREADY_EXISTS"
+	CodeInUse         = "IN_USE"
+	CodeInvalidState  = "INVALID_STATE"
 )
 
 type dataResponse struct {
@@ -89,6 +96,13 @@ var errorMappings = []struct {
 	{repository.ErrItemNotFound, http.StatusNotFound, CodeItemNotFound},
 	{repository.ErrConflict, http.StatusConflict, CodeConflict},
 	{repository.ErrInvalidItem, http.StatusBadRequest, CodeInvalidItem},
+	{services.ErrDatoInvalido, http.StatusBadRequest, CodeInvalidData},
+	{services.ErrUsuarioInvalido, http.StatusBadRequest, CodeInvalidUser},
+	{repository.ErrNoEncontrado, http.StatusNotFound, CodeNotFound},
+	{repository.ErrDuplicado, http.StatusConflict, CodeAlreadyExists},
+	{repository.ErrEnUso, http.StatusConflict, CodeInUse},
+	{repository.ErrStockInsuficiente, http.StatusConflict, CodeInsufficientStock},
+	{repository.ErrEstadoInvalido, http.StatusConflict, CodeInvalidState},
 }
 
 // writeServiceError responde un error devuelto por el servicio. Los errores

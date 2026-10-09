@@ -231,11 +231,13 @@ func TestSQLServer_CreateYUpdate(t *testing.T) {
 		t.Errorf("releído = %+v; la versión debe coincidir exactamente con la devuelta", leido)
 	}
 
+	// El N° de inventario repetido no se controla acá: desde la migración 002
+	// un componente puede compartir el de su PC, y la regla la aplica el
+	// servicio (checkUniqueness). La serie sigue siendo única en la base.
 	for name, it := range map[string]models.Item{
-		"N° de inventario repetido (sin tildes ni mayúsculas)": nuevoItem("1001", ""),
-		"N° de serie repetido":                                 nuevoItem("2002", "lg-1"),
-		"cantidad negativa":                                    func() models.Item { i := nuevoItem("2003", ""); i.Quantity = -1; return i }(),
-		"estado inválido":                                      func() models.Item { i := nuevoItem("2004", ""); i.Status = "ROTO"; return i }(),
+		"N° de serie repetido": nuevoItem("2002", "lg-1"),
+		"cantidad negativa":    func() models.Item { i := nuevoItem("2003", ""); i.Quantity = -1; return i }(),
+		"estado inválido":      func() models.Item { i := nuevoItem("2004", ""); i.Status = "ROTO"; return i }(),
 	} {
 		if _, err := repo.Create(ctx, it); !errors.Is(err, ErrInvalidItem) {
 			t.Errorf("%s: error = %v; se esperaba ErrInvalidItem", name, err)
@@ -409,7 +411,9 @@ func TestSQLServer_ExportarEImportar(t *testing.T) {
 	}
 
 	// Un archivo con errores no cambia nada (transacción completa).
-	roto := editarExportado(t, data, func(f *excelize.File) { set(t, f, "B3", "1001") }) // N° repetido
+	// N° repetido en la impresora (fila 5), que no es de la PC 1001. (El
+	// monitor de la fila 3 sí podría compartirlo: está vinculado a esa PC.)
+	roto := editarExportado(t, data, func(f *excelize.File) { set(t, f, "B5", "1001") })
 	if _, err := repo.ImportInventory(ctx, bytes.NewReader(roto)); err == nil {
 		t.Fatal("debería rechazar el archivo con un N° de inventario repetido")
 	}

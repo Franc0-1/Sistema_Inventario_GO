@@ -1,10 +1,11 @@
-// Package utils reúne utilidades transversales sin lógica de negocio:
-// configuración y conversión de celdas.
+// Package config carga la configuración desde variables de entorno.
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 // Config se carga desde variables de entorno (compatible con Docker/Proxmox).
@@ -25,6 +26,10 @@ type Config struct {
 	// (p. ej. "http://localhost:5173,http://192.168.1.50:3000").
 	// Vacío (default): sin CORS, porque el frontend lo sirve este mismo servidor.
 	CORSOrigins []string
+
+	// HoraSalida (HH:MM) es la hora de fin de la jornada: los préstamos del
+	// día vencen a esa hora salvo que se indique otra. INVENTARIO_HORA_SALIDA.
+	HoraSalida string
 }
 
 func Cargar() Config {
@@ -35,6 +40,7 @@ func Cargar() Config {
 		Almacenamiento: strings.ToLower(entorno("INVENTARIO_STORAGE", "excel")),
 		DBDSN:          os.Getenv("INVENTARIO_DB_DSN"),
 		CORSOrigins:    lista(os.Getenv("INVENTARIO_CORS_ORIGINS")),
+		HoraSalida:     entorno("INVENTARIO_HORA_SALIDA", "13:00"),
 	}
 }
 
@@ -53,4 +59,13 @@ func lista(valor string) []string {
 		}
 	}
 	return out
+}
+
+// HoraDeSalida devuelve HoraSalida como tiempo desde la medianoche.
+func (c Config) HoraDeSalida() (time.Duration, error) {
+	t, err := time.Parse("15:04", strings.TrimSpace(c.HoraSalida))
+	if err != nil {
+		return 0, fmt.Errorf("INVENTARIO_HORA_SALIDA=%q debe tener el formato HH:MM", c.HoraSalida)
+	}
+	return time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute, nil
 }

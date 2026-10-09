@@ -27,6 +27,16 @@ var (
 
 	// ErrInvalidMovementReference: un movimiento apunta a un ítem que nunca existió.
 	ErrInvalidMovementReference = errors.New("el movimiento referencia un ítem inexistente")
+
+	// Modelo nuevo (catálogos, equipos…). El detalle va en el mensaje envuelto.
+	ErrNoEncontrado = errors.New("no encontrado")
+	ErrDuplicado    = errors.New("dato repetido")
+	ErrEnUso        = errors.New("en uso")
+	// ErrStockInsuficiente: una salida mayor al stock (se controla con la fila bloqueada).
+	ErrStockInsuficiente = errors.New("stock insuficiente")
+	// ErrEstadoInvalido: la operación no corresponde al estado actual del registro
+	// (p. ej. devolver un préstamo ya devuelto o prestar un equipo de baja).
+	ErrEstadoInvalido = errors.New("operación no permitida")
 )
 
 // CellError indica exactamente qué celda no se pudo convertir, para poder

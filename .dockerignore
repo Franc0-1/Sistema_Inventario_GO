@@ -1,4 +1,22 @@
+# Solo entra al build lo necesario para compilar y servir.
 .git
-data
-bin
+.github
+.vscode
+.claude
 *.md
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Secretos y datos reales: nunca dentro de la imagen.
+.env
+.env.*
+data
+output
+migracion_*.sql
+*.xlsx
+*.bak
+
+# Binarios y tests del frontend
+bin
+templates/web/tests

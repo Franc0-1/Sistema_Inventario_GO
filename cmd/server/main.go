@@ -41,6 +41,17 @@ func main() {
 	mux := http.NewServeMux()
 	inventory.RegisterRoutes(mux)
 	web.RegisterRoutes(mux)
+	// Modelo nuevo (oficinas, personas, tipos…): solo existe en SQL Server.
+	if base, ok := repo.(*repository.SQLServerRepository); ok {
+		handlers.NewCatalogoHandler(services.NewCatalogoService(base)).RegisterRoutes(mux)
+		handlers.NewEquipoHandler(services.NewEquipoService(base, base)).RegisterRoutes(mux)
+		handlers.NewInsumoHandler(services.NewInsumoService(base, base)).RegisterRoutes(mux)
+		horaSalida, err := cfg.HoraDeSalida()
+		if err != nil {
+			log.Fatalf("configuración: %v", err)
+		}
+		handlers.NewPrestamoHandler(services.NewPrestamoService(base, base, base, horaSalida)).RegisterRoutes(mux)
+	}
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.Puerto,

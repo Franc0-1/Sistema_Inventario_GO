@@ -65,7 +65,8 @@ func (r *SQLServerRepository) inTx(ctx context.Context, fn func(tx *sql.Tx) erro
 // mapSQLError conserva los errores del repositorio y traduce las violaciones
 // de restricciones a errores de datos (400), no a errores internos.
 func mapSQLError(err error) error {
-	for _, known := range []error{ErrConflict, ErrItemNotFound, ErrInvalidItem, ErrInvalidMovement, ErrStorageUnavailable, ErrDatabaseNotEmpty} {
+	for _, known := range []error{ErrConflict, ErrItemNotFound, ErrInvalidItem, ErrInvalidMovement, ErrStorageUnavailable, ErrDatabaseNotEmpty,
+		ErrNoEncontrado, ErrDuplicado, ErrEnUso, ErrStockInsuficiente, ErrEstadoInvalido} {
 		if errors.Is(err, known) {
 			return err
 		}
